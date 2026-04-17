@@ -1,0 +1,19 @@
+{
+  "name": "crontract",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @crontract/web dev",
+    "build": "pnpm --filter @crontract/web build",
+    "lint": "pnpm --filter @crontract/web lint",
+    "db:generate": "pnpm --filter @crontract/db generate",
+    "db:push": "pnpm --filter @crontract/db push",
+    "db:migrate": "pnpm --filter @crontract/db migrate",
+    "db:seed": "pnpm --filter @crontract/db seed",
+    "db:studio": "pnpm --filter @crontract/db studio",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,17 @@
+node_modules/
+.next/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.turbo
+coverage/
+.vercel
+.output
+postgres-data/
+minio-data/
+redis-data/
+apps/web/.env
+apps/web/.env.local
