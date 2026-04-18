@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requireAdminRole } from "@/lib/authorization"
 
 const createRiskSchema = z.object({
   title: z.string().min(1).max(500),
@@ -17,8 +18,8 @@ const createRiskSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const riskLevel = searchParams.get("riskLevel")
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     const risks = await prisma.riskAssessment.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId: session!.user.workspaceId!,
         ...(riskLevel ? { riskLevel } : {}),
         ...(status ? { status } : {}),
       },
@@ -43,8 +44,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createRiskSchema.safeParse(body)
@@ -52,8 +53,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid input", detail: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 })
     }
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const risk = await prisma.riskAssessment.create({
       data: {

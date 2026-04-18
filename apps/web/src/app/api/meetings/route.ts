@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
 
 const createMeetingSchema = z.object({
   title: z.string().min(1).max(500),
@@ -26,8 +27,11 @@ const createMeetingSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const workspaceId = session!.user.workspaceId!
+    const admin = isAdmin(session)
 
     const { searchParams } = new URL(req.url)
     const projectId = searchParams.get("projectId")
@@ -35,9 +39,10 @@ export async function GET(req: NextRequest) {
 
     const meetings = await prisma.meeting.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId,
         ...(projectId ? { projectId } : {}),
         ...(status ? { status: status as "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" } : {}),
+        ...(!admin ? { attendees: { has: session!.user.id } } : {}),
       },
       orderBy: { startTime: "asc" },
     })
@@ -67,8 +72,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createMeetingSchema.safeParse(body)
@@ -79,7 +84,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { workspaceId, id: userId } = session.user
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const meeting = await prisma.meeting.create({
       data: {

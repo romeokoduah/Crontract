@@ -2,25 +2,28 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const { searchParams } = new URL(req.url)
     const statusFilter = searchParams.get("status") // PENDING | APPROVED | REJECTED | CANCELLED
     const view = searchParams.get("view") // "mine" or "all"
 
-    const userId = session.user.id
-    const workspaceId = session.user.workspaceId
+    const userId = session!.user.id
+    const workspaceId = session!.user.workspaceId!
+    const admin = isAdmin(session)
 
     // Get all approvals for this workspace
     const approvals = await prisma.approval.findMany({
       where: {
         workspaceId,
         ...(statusFilter ? { status: statusFilter as "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" } : {}),
+        ...(!admin ? { requestedBy: userId } : {}),
       },
       include: {
         flow: { select: { id: true, name: true, entityType: true, steps: true } },

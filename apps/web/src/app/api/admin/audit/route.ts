@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const { searchParams } = new URL(req.url)
     const userId = searchParams.get("userId")
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const pageSize = Math.min(parseInt(searchParams.get("pageSize") ?? "50", 10), 200)
 
     const where = {
-      workspaceId: session.user.workspaceId,
+      workspaceId: session!.user.workspaceId!,
       ...(userId ? { userId } : {}),
       ...(entityType ? { entityType } : {}),
       ...(action ? { action } : {}),

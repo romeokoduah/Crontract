@@ -12,10 +12,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const role = await prisma.role.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId },
+      where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!role) return NextResponse.json({ error: "Role not found" }, { status: 404 })
 
@@ -25,8 +25,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Invalid input", detail: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 })
     }
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     // Get existing permissions for audit diff
     const existing = await prisma.rolePermission.findMany({ where: { roleId: params.id } })

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requireAdminRole } from "@/lib/authorization"
 
 const createVendorSchema = z.object({
   name: z.string().min(1),
@@ -18,11 +19,11 @@ const createVendorSchema = z.object({
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const vendors = await prisma.vendor.findMany({
-      where: { workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { workspaceId: session!.user.workspaceId!, deletedAt: null },
       orderBy: { name: "asc" },
     })
 
@@ -36,8 +37,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createVendorSchema.safeParse(body)
@@ -49,8 +50,8 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const vendor = await prisma.vendor.create({
       data: {

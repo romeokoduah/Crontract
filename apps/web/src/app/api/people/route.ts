@@ -1,8 +1,34 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { z } from "zod"
+import crypto from "crypto"
 import { prisma } from "@/lib/db"
-import { authOptions } from "@/lib/auth"
+import { authOptions, hashPassword } from "@/lib/auth"
+import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+
+function generateTempPassword(): string {
+  const length = 12
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+  const bytes = crypto.randomBytes(length)
+  let password = ""
+  for (let i = 0; i < length; i++) {
+    password += charset[bytes[i] % charset.length]
+  }
+  // Ensure at least one of each required type
+  const ensure = [
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "abcdefghijklmnopqrstuvwxyz",
+    "0123456789",
+    "!@#$%^&*",
+  ]
+  for (let i = 0; i < ensure.length; i++) {
+    const chars = ensure[i]
+    const pos = crypto.randomInt(password.length)
+    const char = chars[crypto.randomInt(chars.length)]
+    password = password.substring(0, pos) + char + password.substring(pos + 1)
+  }
+  return password
+}
 
 const createEmployeeSchema = z.object({
   firstName: z.string().min(1).max(100),
@@ -23,12 +49,11 @@ const createEmployeeSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const workspaceId = session!.user.workspaceId!
+    const admin = isAdmin(session)
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
@@ -36,10 +61,11 @@ export async function GET(req: NextRequest) {
 
     const employees = await prisma.employee.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId,
         deletedAt: null,
         ...(status ? { status: status as "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "TERMINATED" | "RESIGNED" } : {}),
         ...(departmentId ? { departmentId } : {}),
+        ...(!admin ? { email: session!.user.email.toLowerCase() } : {}),
       },
       include: {
         department: { select: { id: true, name: true } },
@@ -58,12 +84,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createEmployeeSchema.safeParse(body)
@@ -75,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const workspaceId = session.user.workspaceId
+    const workspaceId = session!.user.workspaceId!
 
     // Check unique employee number
     const existing = await prisma.employee.findFirst({
@@ -108,22 +130,77 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // --- Create User account with temporary password ---
+    const tempPassword = generateTempPassword()
+    const passwordHash = await hashPassword(tempPassword)
+
+    let user = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } })
+    let userCreated = false
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email.toLowerCase(),
+          passwordHash,
+          mustChangePassword: true,
+          tempPasswordExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      })
+      userCreated = true
+    }
+
+    // Find or create "Team Member" role
+    let role = await prisma.role.findFirst({
+      where: { workspaceId, name: "Team Member" },
+    })
+    if (!role) {
+      role = await prisma.role.create({
+        data: {
+          workspaceId,
+          name: "Team Member",
+          description: "Standard employee access",
+          isSystem: true,
+        },
+      })
+    }
+
+    // Check if membership already exists
+    const existingMembership = await prisma.membership.findUnique({
+      where: { userId_workspaceId: { userId: user.id, workspaceId } },
+    })
+    if (!existingMembership) {
+      await prisma.membership.create({
+        data: { userId: user.id, workspaceId, roleId: role.id },
+      })
+    }
+
+    // Link employee record to user
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { userId: user.id },
+    })
+
     // Audit log
     await prisma.auditLog.create({
       data: {
         workspaceId,
-        userId: session.user.id,
+        userId: session!.user.id,
         entityType: "employee",
         entityId: employee.id,
         action: "CREATE",
         afterState: {
           name: `${employee.firstName} ${employee.lastName}`,
           employeeNumber: employee.employeeNumber,
+          userCreated,
         },
       },
     })
 
-    return NextResponse.json({ employee }, { status: 201 })
+    return NextResponse.json({
+      employee,
+      tempPassword: userCreated ? tempPassword : undefined,
+      userCreated,
+    }, { status: 201 })
   } catch (err) {
     console.error("[POST /api/people]", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

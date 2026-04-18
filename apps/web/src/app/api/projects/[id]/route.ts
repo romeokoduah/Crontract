@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
 
 const updateProjectSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -21,17 +22,15 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const admin = isAdmin(session)
 
     const project = await prisma.project.findFirst({
       where: {
         id: params.id,
-        workspaceId: session.user.workspaceId,
+        workspaceId: session!.user.workspaceId!,
         deletedAt: null,
       },
       include: {
@@ -45,6 +44,10 @@ export async function GET(
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    if (!admin && project.ownerId !== session!.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const owner = await prisma.user.findUnique({
@@ -65,15 +68,11 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const existing = await prisma.project.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
@@ -105,8 +104,8 @@ export async function PATCH(
 
     await prisma.auditLog.create({
       data: {
-        workspaceId: session.user.workspaceId,
-        userId: session.user.id,
+        workspaceId: session!.user.workspaceId!,
+        userId: session!.user.id,
         entityType: "project",
         entityId: project.id,
         action: "UPDATE",
@@ -128,15 +127,11 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const existing = await prisma.project.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
@@ -149,8 +144,8 @@ export async function DELETE(
 
     await prisma.auditLog.create({
       data: {
-        workspaceId: session.user.workspaceId,
-        userId: session.user.id,
+        workspaceId: session!.user.workspaceId!,
+        userId: session!.user.id,
         entityType: "project",
         entityId: params.id,
         action: "DELETE",

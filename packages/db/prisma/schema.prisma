@@ -15,12 +15,15 @@ model User {
   id            String    @id @default(uuid()) @db.Uuid
   email         String    @unique
   name          String
-  passwordHash  String?   @map("password_hash")
-  avatarUrl     String?   @map("avatar_url")
-  emailVerified DateTime? @map("email_verified")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  deletedAt     DateTime? @map("deleted_at")
+  passwordHash        String?   @map("password_hash")
+  avatarUrl           String?   @map("avatar_url")
+  emailVerified       DateTime? @map("email_verified")
+  mustChangePassword  Boolean   @default(false) @map("must_change_password")
+  passwordSetAt       DateTime? @map("password_set_at")
+  tempPasswordExpiresAt DateTime? @map("temp_password_expires_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
 
   memberships    Membership[]
   invitationsSent Invitation[]  @relation("InvitationSender")
@@ -138,6 +141,31 @@ model Workspace {
   permits        Permit[]
   toolboxTalks   ToolboxTalk[]
   safetyTrainings SafetyTraining[]
+
+  // Grants & M&E
+  donors           Donor[]
+  grants           Grant[]
+  grantReports     GrantReport[]
+  logframes        Logframe[]
+  indicators       Indicator[]
+  indicatorResults IndicatorResult[]
+
+  // CRM
+  crmCompanies   CrmCompany[]
+  crmContacts    CrmContact[]
+  crmDeals       CrmDeal[]
+  crmActivities  CrmActivity[]
+
+  // Compliance
+  complianceObligations ComplianceObligation[]
+  licences              Licence[]
+  policies              Policy[]
+  complianceAudits      ComplianceAudit[]
+  correctiveActions     CorrectiveAction[]
+
+  // Social Media
+  socialAccounts SocialAccount[]
+  socialPosts    SocialPost[]
 
   @@map("workspaces")
 }
@@ -1167,4 +1195,625 @@ model SafetyTraining {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("safety_trainings")
+}
+
+// ============================================================
+// GRANTS & M&E
+// ============================================================
+
+model Donor {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  name        String
+  type        DonorType
+  contactName String?  @map("contact_name")
+  email       String?
+  phone       String?
+  country     String?
+  website     String?
+  notes       String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grants    Grant[]
+
+  @@unique([workspaceId, name])
+  @@map("donors")
+}
+
+enum DonorType {
+  BILATERAL
+  MULTILATERAL
+  FOUNDATION
+  CORPORATE
+  GOVERNMENT
+  INDIVIDUAL
+}
+
+model Grant {
+  id                 String          @id @default(uuid()) @db.Uuid
+  workspaceId        String          @map("workspace_id") @db.Uuid
+  donorId            String          @map("donor_id") @db.Uuid
+  grantNumber        String          @map("grant_number")
+  title              String
+  description        String?         @db.Text
+  amount             Decimal         @db.Decimal(14, 2)
+  currency           String          @default("GHS")
+  startDate          DateTime        @map("start_date")
+  endDate            DateTime        @map("end_date")
+  status             GrantStatus     @default(PIPELINE)
+  reportingFrequency ReportingFrequency @default(QUARTERLY) @map("reporting_frequency")
+  programArea        String?         @map("program_area")
+  contactPerson      String?         @map("contact_person")
+  notes              String?         @db.Text
+  lines              Json?
+  createdBy          String          @map("created_by") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  deletedAt          DateTime?       @map("deleted_at")
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  donor       Donor         @relation(fields: [donorId], references: [id])
+  reports     GrantReport[]
+  logframes   Logframe[]
+  indicators  Indicator[]
+
+  @@unique([workspaceId, grantNumber])
+  @@map("grants")
+}
+
+enum GrantStatus {
+  PIPELINE
+  SUBMITTED
+  APPROVED
+  ACTIVE
+  SUSPENDED
+  CLOSEOUT
+  CLOSED
+}
+
+enum ReportingFrequency {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+model GrantReport {
+  id            String            @id @default(uuid()) @db.Uuid
+  workspaceId   String            @map("workspace_id") @db.Uuid
+  grantId       String            @map("grant_id") @db.Uuid
+  reportNumber  String            @map("report_number")
+  period        String
+  type          GrantReportType
+  status        GrantReportStatus @default(DRAFT)
+  dueDate       DateTime          @map("due_date")
+  submittedDate DateTime?         @map("submitted_date")
+  content       Json?
+  createdBy     String            @map("created_by") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grant     Grant     @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, reportNumber])
+  @@map("grant_reports")
+}
+
+enum GrantReportType {
+  NARRATIVE
+  FINANCIAL
+  COMBINED
+}
+
+enum GrantReportStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  REVISION_REQUESTED
+}
+
+model Logframe {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  grantId     String   @map("grant_id") @db.Uuid
+  goal        String   @db.Text
+  purpose     String   @db.Text
+  outputs     Json
+  assumptions Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grant     Grant     @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@map("logframes")
+}
+
+model Indicator {
+  id                  String              @id @default(uuid()) @db.Uuid
+  workspaceId         String              @map("workspace_id") @db.Uuid
+  grantId             String              @map("grant_id") @db.Uuid
+  name                String
+  type                IndicatorType
+  category            String?
+  unit                String
+  baseline            Decimal             @default(0) @db.Decimal(14, 2)
+  target              Decimal             @db.Decimal(14, 2)
+  collectionFrequency ReportingFrequency  @default(QUARTERLY) @map("collection_frequency")
+  dataSource          String?             @map("data_source")
+  responsible         String?
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grant     Grant              @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  results   IndicatorResult[]
+
+  @@map("indicators")
+}
+
+enum IndicatorType {
+  OUTPUT
+  OUTCOME
+  IMPACT
+}
+
+model IndicatorResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  indicatorId  String   @map("indicator_id") @db.Uuid
+  period       String
+  actualValue  Decimal  @map("actual_value") @db.Decimal(14, 2)
+  notes        String?  @db.Text
+  evidenceKey  String?  @map("evidence_key")
+  reportedBy   String   @map("reported_by") @db.Uuid
+  reportedDate DateTime @map("reported_date")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  indicator Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+
+  @@map("indicator_results")
+}
+
+// ============================================================
+// CRM
+// ============================================================
+
+model CrmCompany {
+  id            String       @id @default(uuid()) @db.Uuid
+  workspaceId   String       @map("workspace_id") @db.Uuid
+  name          String
+  industry      String?
+  website       String?
+  phone         String?
+  email         String?
+  address       String?      @db.Text
+  size          CompanySize?
+  annualRevenue Decimal?     @map("annual_revenue") @db.Decimal(14, 2)
+  ownerId       String?      @map("owner_id") @db.Uuid
+  notes         String?      @db.Text
+  isActive      Boolean      @default(true) @map("is_active")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contacts  CrmContact[]
+  deals     CrmDeal[]
+
+  @@unique([workspaceId, name])
+  @@map("crm_companies")
+}
+
+enum CompanySize {
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+model CrmContact {
+  id              String         @id @default(uuid()) @db.Uuid
+  workspaceId     String         @map("workspace_id") @db.Uuid
+  companyId       String?        @map("company_id") @db.Uuid
+  firstName       String         @map("first_name")
+  lastName        String         @map("last_name")
+  email           String?
+  phone           String?
+  jobTitle        String?        @map("job_title")
+  lifecycleStage  LifecycleStage @default(LEAD) @map("lifecycle_stage")
+  source          LeadSource?
+  ownerId         String?        @map("owner_id") @db.Uuid
+  notes           String?        @db.Text
+  lastContactedAt DateTime?      @map("last_contacted_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  deletedAt       DateTime?      @map("deleted_at")
+
+  workspace  Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company    CrmCompany?   @relation(fields: [companyId], references: [id])
+  deals      CrmDeal[]
+  activities CrmActivity[]
+
+  @@map("crm_contacts")
+}
+
+enum LifecycleStage {
+  LEAD
+  PROSPECT
+  OPPORTUNITY
+  CUSTOMER
+  CHURNED
+}
+
+enum LeadSource {
+  WEB
+  REFERRAL
+  EVENT
+  COLD_CALL
+  SOCIAL
+  OTHER
+}
+
+model CrmDeal {
+  id                String    @id @default(uuid()) @db.Uuid
+  workspaceId       String    @map("workspace_id") @db.Uuid
+  contactId         String?   @map("contact_id") @db.Uuid
+  companyId         String?   @map("company_id") @db.Uuid
+  number            String
+  title             String
+  value             Decimal   @db.Decimal(14, 2)
+  currency          String    @default("GHS")
+  stage             DealStage @default(QUALIFIED)
+  probability       Int       @default(0)
+  expectedCloseDate DateTime? @map("expected_close_date")
+  actualCloseDate   DateTime? @map("actual_close_date")
+  ownerId           String?   @map("owner_id") @db.Uuid
+  lostReason        String?   @map("lost_reason")
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  workspace  Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact    CrmContact?   @relation(fields: [contactId], references: [id])
+  company    CrmCompany?   @relation(fields: [companyId], references: [id])
+  activities CrmActivity[]
+
+  @@map("crm_deals")
+}
+
+enum DealStage {
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  CONTRACT_SENT
+  WON
+  LOST
+}
+
+model CrmActivity {
+  id          String       @id @default(uuid()) @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  contactId   String?      @map("contact_id") @db.Uuid
+  dealId      String?      @map("deal_id") @db.Uuid
+  type        ActivityType
+  subject     String
+  description String?      @db.Text
+  dueDate     DateTime?    @map("due_date")
+  completedAt DateTime?    @map("completed_at")
+  createdBy   String       @map("created_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact   CrmContact? @relation(fields: [contactId], references: [id])
+  deal      CrmDeal?    @relation(fields: [dealId], references: [id])
+
+  @@index([contactId])
+  @@index([dealId])
+  @@map("crm_activities")
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  TASK
+}
+
+// ============================================================
+// COMPLIANCE
+// ============================================================
+
+model ComplianceObligation {
+  id          String               @id @default(uuid()) @db.Uuid
+  workspaceId String               @map("workspace_id") @db.Uuid
+  title       String
+  regulation  String?
+  category    ObligationCategory
+  description String?              @db.Text
+  frequency   ObligationFrequency  @default(ANNUAL)
+  ownerId     String?              @map("owner_id") @db.Uuid
+  nextDueDate DateTime?            @map("next_due_date")
+  status      ComplianceStatus     @default(NOT_ASSESSED)
+  priority    Priority             @default(MEDIUM)
+  notes       String?              @db.Text
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  deletedAt   DateTime?            @map("deleted_at")
+
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  correctiveActions CorrectiveAction[] @relation("ObligationActions")
+
+  @@map("compliance_obligations")
+}
+
+enum ObligationCategory {
+  REGULATORY
+  CONTRACTUAL
+  INTERNAL
+  INDUSTRY
+}
+
+enum ObligationFrequency {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  NON_COMPLIANT
+  AT_RISK
+  NOT_ASSESSED
+}
+
+model Licence {
+  id               String       @id @default(uuid()) @db.Uuid
+  workspaceId      String       @map("workspace_id") @db.Uuid
+  name             String
+  issuingAuthority String       @map("issuing_authority")
+  licenceNumber    String       @map("licence_number")
+  category         String?
+  issueDate        DateTime     @map("issue_date")
+  expiryDate       DateTime     @map("expiry_date")
+  status           LicenceStatus @default(ACTIVE)
+  renewalCost      Decimal?     @map("renewal_cost") @db.Decimal(14, 2)
+  currency         String       @default("GHS")
+  alertDaysBefore  Int          @default(30) @map("alert_days_before")
+  responsibleId    String?      @map("responsible_id") @db.Uuid
+  notes            String?      @db.Text
+  documentKey      String?      @map("document_key")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  deletedAt        DateTime?    @map("deleted_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, licenceNumber])
+  @@map("licences")
+}
+
+enum LicenceStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  SUSPENDED
+  REVOKED
+}
+
+model Policy {
+  id           String       @id @default(uuid()) @db.Uuid
+  workspaceId  String       @map("workspace_id") @db.Uuid
+  title        String
+  policyNumber String       @map("policy_number")
+  category     PolicyCategory
+  version      Int          @default(1)
+  effectiveDate DateTime    @map("effective_date")
+  reviewDate   DateTime?    @map("review_date")
+  status       PolicyStatus @default(DRAFT)
+  content      String?      @db.Text
+  approvedBy   String?      @map("approved_by") @db.Uuid
+  approvedDate DateTime?    @map("approved_date")
+  createdBy    String       @map("created_by") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  deletedAt    DateTime?    @map("deleted_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, policyNumber])
+  @@map("policies")
+}
+
+enum PolicyCategory {
+  HR
+  SAFETY
+  FINANCIAL
+  IT
+  OPERATIONAL
+  LEGAL
+  ENVIRONMENTAL
+}
+
+enum PolicyStatus {
+  DRAFT
+  IN_REVIEW
+  ACTIVE
+  ARCHIVED
+  SUPERSEDED
+}
+
+model ComplianceAudit {
+  id             String      @id @default(uuid()) @db.Uuid
+  workspaceId    String      @map("workspace_id") @db.Uuid
+  auditNumber    String      @map("audit_number")
+  title          String
+  type           AuditType
+  auditor        String?
+  scope          String?     @db.Text
+  scheduledDate  DateTime    @map("scheduled_date")
+  completedDate  DateTime?   @map("completed_date")
+  status         AuditStatus @default(PLANNED)
+  findings       Json?
+  overallRating  AuditRating? @map("overall_rating")
+  createdBy      String      @map("created_by") @db.Uuid
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  correctiveActions CorrectiveAction[] @relation("AuditActions")
+
+  @@unique([workspaceId, auditNumber])
+  @@map("compliance_audits")
+}
+
+enum AuditType {
+  INTERNAL
+  EXTERNAL
+  REGULATORY
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AuditRating {
+  SATISFACTORY
+  NEEDS_IMPROVEMENT
+  UNSATISFACTORY
+}
+
+model CorrectiveAction {
+  id            String                @id @default(uuid()) @db.Uuid
+  workspaceId   String                @map("workspace_id") @db.Uuid
+  auditId       String?               @map("audit_id") @db.Uuid
+  obligationId  String?               @map("obligation_id") @db.Uuid
+  title         String
+  description   String?               @db.Text
+  assigneeId    String?               @map("assignee_id") @db.Uuid
+  dueDate       DateTime?             @map("due_date")
+  completedDate DateTime?             @map("completed_date")
+  status        CorrectiveActionStatus @default(OPEN)
+  priority      Priority              @default(MEDIUM)
+  createdBy     String                @map("created_by") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  workspace  Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  audit      ComplianceAudit?     @relation("AuditActions", fields: [auditId], references: [id])
+  obligation ComplianceObligation? @relation("ObligationActions", fields: [obligationId], references: [id])
+
+  @@map("corrective_actions")
+}
+
+enum CorrectiveActionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+// ============================================================
+// SOCIAL MEDIA
+// ============================================================
+
+model SocialAccount {
+  id          String         @id @default(uuid()) @db.Uuid
+  workspaceId String         @map("workspace_id") @db.Uuid
+  platform    SocialPlatform
+  accountName String         @map("account_name")
+  handle      String
+  avatarUrl   String?        @map("avatar_url")
+  isConnected Boolean        @default(false) @map("is_connected")
+  accessToken String?        @map("access_token") @db.Text
+  tokenExpiry DateTime?      @map("token_expiry")
+  metadata    Json?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  workspace     Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  postPlatforms SocialPostPlatform[]
+
+  @@unique([workspaceId, platform, handle])
+  @@map("social_accounts")
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  LINKEDIN
+  TIKTOK
+  YOUTUBE
+}
+
+model SocialPost {
+  id           String           @id @default(uuid()) @db.Uuid
+  workspaceId  String           @map("workspace_id") @db.Uuid
+  content      String           @db.Text
+  mediaUrls    Json?            @map("media_urls")
+  status       SocialPostStatus @default(DRAFT)
+  scheduledAt  DateTime?        @map("scheduled_at")
+  publishedAt  DateTime?        @map("published_at")
+  tags         String[]         @default([])
+  campaignName String?          @map("campaign_name")
+  createdBy    String           @map("created_by") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  deletedAt    DateTime?        @map("deleted_at")
+
+  workspace Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  platforms SocialPostPlatform[]
+
+  @@map("social_posts")
+}
+
+enum SocialPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  PARTIALLY_PUBLISHED
+  FAILED
+}
+
+model SocialPostPlatform {
+  id             String                     @id @default(uuid()) @db.Uuid
+  postId         String                     @map("post_id") @db.Uuid
+  socialAccountId String                    @map("social_account_id") @db.Uuid
+  platform       SocialPlatform
+  platformPostId String?                    @map("platform_post_id")
+  status         SocialPostPlatformStatus   @default(PENDING)
+  publishedUrl   String?                    @map("published_url")
+  errorMessage   String?                    @map("error_message")
+  engagement     Json?
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+
+  post          SocialPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id])
+
+  @@map("social_post_platforms")
+}
+
+enum SocialPostPlatformStatus {
+  PENDING
+  PUBLISHED
+  FAILED
 }

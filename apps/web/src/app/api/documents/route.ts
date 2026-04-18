@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 
 const createDocumentSchema = z.object({
   title: z.string().min(1).max(500),
@@ -22,8 +23,11 @@ const createFolderSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const workspaceId = session!.user.workspaceId!
+    const admin = isAdmin(session)
 
     const { searchParams } = new URL(req.url)
     const folderId = searchParams.get("folderId")
@@ -32,16 +36,17 @@ export async function GET(req: NextRequest) {
     const [documents, folders] = await Promise.all([
       prisma.document.findMany({
         where: {
-          workspaceId: session.user.workspaceId,
+          workspaceId,
           deletedAt: null,
           ...(folderId === "root" ? { folderId: null } : folderId ? { folderId } : {}),
           ...(type ? { docType: type as "GENERAL" | "LETTER" | "MEMO" | "SOP" | "POLICY" | "CONTRACT" | "REPORT" } : {}),
+          ...(!admin ? { createdBy: session!.user.id } : {}),
         },
         orderBy: { updatedAt: "desc" },
       }),
       prisma.folder.findMany({
         where: {
-          workspaceId: session.user.workspaceId,
+          workspaceId,
           ...(folderId === "root" ? { parentId: null } : folderId ? { parentId: folderId } : {}),
         },
         orderBy: { name: "asc" },
@@ -73,11 +78,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const body = await req.json()
-    const { workspaceId, id: userId } = session.user
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     // Handle folder creation
     if (body._type === "folder") {

@@ -12,10 +12,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const membership = await prisma.membership.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId },
+      where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!membership) return NextResponse.json({ error: "Member not found" }, { status: 404 })
 
@@ -26,11 +26,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     // Verify role belongs to workspace
-    const role = await prisma.role.findFirst({ where: { id: parsed.data.roleId, workspaceId: session.user.workspaceId } })
+    const role = await prisma.role.findFirst({ where: { id: parsed.data.roleId, workspaceId: session!.user.workspaceId! } })
     if (!role) return NextResponse.json({ error: "Role not found" }, { status: 404 })
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const updated = await prisma.membership.update({
       where: { id: params.id },
@@ -64,10 +64,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const membership = await prisma.membership.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId },
+      where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!membership) return NextResponse.json({ error: "Member not found" }, { status: 404 })
 
@@ -77,12 +77,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     // Prevent self-removal via this endpoint
-    if (membership.userId === session.user.id) {
+    if (membership.userId === session!.user.id) {
       return NextResponse.json({ error: "Cannot remove yourself" }, { status: 403 })
     }
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     await prisma.membership.delete({ where: { id: params.id } })
 

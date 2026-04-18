@@ -18,13 +18,13 @@ export async function GET(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
     }
-    if (!session.user.workspaceId) {
+    if (!session!.user.workspaceId!) {
       return NextResponse.json({ error: "No workspace" }, { status: 403 })
     }
 
     // Verify task belongs to workspace
     const task = await prisma.task.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
@@ -34,7 +34,7 @@ export async function GET(
       where: {
         entityType: "task",
         entityId: params.id,
-        workspaceId: session.user.workspaceId,
+        workspaceId: session!.user.workspaceId!,
         deletedAt: null,
         parentId: null,
       },
@@ -67,12 +67,12 @@ export async function POST(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
     }
-    if (!session.user.workspaceId) {
+    if (!session!.user.workspaceId!) {
       return NextResponse.json({ error: "No workspace" }, { status: 403 })
     }
 
     const task = await prisma.task.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
@@ -89,10 +89,10 @@ export async function POST(
 
     const comment = await prisma.comment.create({
       data: {
-        workspaceId: session.user.workspaceId,
+        workspaceId: session!.user.workspaceId!,
         entityType: "task",
         entityId: params.id,
-        userId: session.user.id,
+        userId: session!.user.id,
         content: parsed.data.content,
         parentId: parsed.data.parentId,
       },

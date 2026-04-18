@@ -576,106 +576,108 @@ function StepInviteTeam({
   })
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Invite your team
-        </h2>
-        <p className="mt-1.5 text-muted-foreground text-sm">
-          Add colleagues who will work with you in Crontract. They&apos;ll receive an invitation email.
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-1">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Email address
-          </span>
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide w-36">
-            Role
-          </span>
-          <span className="w-8" />
+    <Form {...form}>
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">
+            Invite your team
+          </h2>
+          <p className="mt-1.5 text-muted-foreground text-sm">
+            Add colleagues who will work with you in Crontract. They&apos;ll receive an invitation email.
+          </p>
         </div>
 
-        {fields.map((field, index) => (
-          <div key={field.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-start">
-            <FormField
-              control={form.control}
-              name={`invites.${index}.email`}
-              render={({ field: f }) => (
-                <FormItem className="space-y-0">
-                  <FormControl>
-                    <Input
-                      {...f}
-                      type="email"
-                      placeholder="colleague@company.com"
-                    />
-                  </FormControl>
-                  <FormMessage className="text-xs mt-1" />
-                </FormItem>
-              )}
-            />
+        <div className="space-y-3">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Email address
+            </span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide w-36">
+              Role
+            </span>
+            <span className="w-8" />
+          </div>
 
-            <FormField
-              control={form.control}
-              name={`invites.${index}.role`}
-              render={({ field: f }) => (
-                <FormItem className="space-y-0">
-                  <Select value={f.value} onValueChange={f.onChange}>
+          {fields.map((field, index) => (
+            <div key={field.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-start">
+              <FormField
+                control={form.control}
+                name={`invites.${index}.email`}
+                render={({ field: f }) => (
+                  <FormItem className="space-y-0">
                     <FormControl>
-                      <SelectTrigger className="w-36">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <Input
+                        {...f}
+                        type="email"
+                        placeholder="colleague@company.com"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      {ROLE_OPTIONS.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
+                    <FormMessage className="text-xs mt-1" />
+                  </FormItem>
+                )}
+              />
 
+              <FormField
+                control={form.control}
+                name={`invites.${index}.role`}
+                render={({ field: f }) => (
+                  <FormItem className="space-y-0">
+                    <Select value={f.value} onValueChange={f.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-36">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {r}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => remove(index)}
+                disabled={fields.length === 1}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+
+          {fields.length < 10 && (
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => remove(index)}
-              disabled={fields.length === 1}
+              variant="outline"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+              onClick={() => append({ email: "", role: "Team Member" })}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5" />
+              Add another
             </Button>
-          </div>
-        ))}
+          )}
+        </div>
 
-        {fields.length < 10 && (
-          <Button
+        <div className="pt-2 border-t border-border">
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2 text-muted-foreground"
-            onClick={() => append({ email: "", role: "Team Member" })}
+            onClick={onSkip}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
           >
-            <Plus className="h-3.5 w-3.5" />
-            Add another
-          </Button>
-        )}
+            Skip for now, I&apos;ll invite team members later
+          </button>
+        </div>
       </div>
-
-      <div className="pt-2 border-t border-border">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
-        >
-          Skip for now, I&apos;ll invite team members later
-        </button>
-      </div>
-    </div>
+    </Form>
   )
 }
 

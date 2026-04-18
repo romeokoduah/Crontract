@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requireAdminRole } from "@/lib/authorization"
 
 const createAssetSchema = z.object({
   name: z.string().min(1).max(300),
@@ -22,8 +23,8 @@ const createAssetSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     const assets = await prisma.asset.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId: session!.user.workspaceId!,
         deletedAt: null,
         ...(status ? { status: status as "ACTIVE" | "MAINTENANCE" | "CHECKED_OUT" | "RETIRED" | "DISPOSED" } : {}),
         ...(categoryId ? { categoryId } : {}),
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
 
     // Asset categories for filter
     const categories = await prisma.assetCategory.findMany({
-      where: { workspaceId: session.user.workspaceId },
+      where: { workspaceId: session!.user.workspaceId! },
       orderBy: { name: "asc" },
     })
 
@@ -83,8 +84,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createAssetSchema.safeParse(body)
@@ -95,7 +96,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { workspaceId, id: userId } = session.user
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     // Verify category belongs to workspace
     const category = await prisma.assetCategory.findFirst({

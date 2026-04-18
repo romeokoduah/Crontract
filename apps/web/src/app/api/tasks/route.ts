@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 
 const createTaskSchema = z.object({
   projectId: z.string().uuid(),
@@ -21,12 +22,11 @@ const createTaskSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const workspaceId = session!.user.workspaceId!
+    const admin = isAdmin(session)
 
     const { searchParams } = new URL(req.url)
     const projectId = searchParams.get("projectId")
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { id: projectId, workspaceId, deletedAt: null },
     })
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
@@ -47,10 +47,11 @@ export async function GET(req: NextRequest) {
     const tasks = await prisma.task.findMany({
       where: {
         projectId,
-        workspaceId: session.user.workspaceId,
+        workspaceId,
         deletedAt: null,
         parentId: null, // top-level only unless specified
         ...(status ? { status: status as "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "CANCELLED" } : {}),
+        ...(!admin ? { assigneeId: session!.user.id } : {}),
       },
       include: {
         subtasks: {
@@ -88,12 +89,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const body = await req.json()
     const parsed = createTaskSchema.safeParse(body)
@@ -105,8 +102,8 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({

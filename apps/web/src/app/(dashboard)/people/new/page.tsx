@@ -24,7 +24,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { ArrowLeft, Loader2, Copy, Check, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
 const formSchema = z.object({
@@ -53,6 +61,11 @@ export default function NewEmployeePage() {
   const [, setDepartments] = useState<Department[]>([])
   const [managers, setManagers] = useState<Employee[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [tempPasswordModal, setTempPasswordModal] = useState<{ open: boolean; password: string }>({
+    open: false,
+    password: "",
+  })
+  const [copied, setCopied] = useState(false)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -103,9 +116,14 @@ export default function NewEmployeePage() {
         return
       }
 
-      toast.success("Employee created successfully")
-      router.push("/people")
-      router.refresh()
+      if (data.tempPassword) {
+        // Show one-time password modal — don't navigate yet
+        setTempPasswordModal({ open: true, password: data.tempPassword })
+      } else {
+        toast.success("Employee created successfully")
+        router.push("/people")
+        router.refresh()
+      }
     } catch {
       toast.error("Something went wrong. Please try again.")
     } finally {
@@ -349,6 +367,70 @@ export default function NewEmployeePage() {
           </div>
         </form>
       </Form>
+
+      <Dialog
+        open={tempPasswordModal.open}
+        onOpenChange={() => {
+          // Prevent closing by clicking outside — user must click Done
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Employee Account Created</DialogTitle>
+            <DialogDescription>
+              A user account has been created for this employee. Share the temporary password below securely.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded bg-muted px-3 py-2 font-mono text-sm tracking-wider select-all">
+                {tempPasswordModal.password}
+              </code>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(tempPasswordModal.password)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+
+            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium">This password will only be shown once. Make sure to share it securely with the employee.</p>
+                  <p>The employee will be required to change this password on their first login.</p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400">Expires in 7 days</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => {
+                setTempPasswordModal({ open: false, password: "" })
+                router.push("/people")
+                router.refresh()
+              }}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

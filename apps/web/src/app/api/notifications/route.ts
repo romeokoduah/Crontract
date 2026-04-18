@@ -13,15 +13,15 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const { searchParams } = new URL(req.url)
     const unreadOnly = searchParams.get("unread") === "true"
 
     const notifications = await prisma.notification.findMany({
       where: {
-        userId: session.user.id,
-        workspaceId: session.user.workspaceId,
+        userId: session!.user.id,
+        workspaceId: session!.user.workspaceId!,
         ...(unreadOnly ? { read: false } : {}),
       },
       orderBy: { createdAt: "desc" },
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
 
     const unreadCount = await prisma.notification.count({
       where: {
-        userId: session.user.id,
-        workspaceId: session.user.workspaceId,
+        userId: session!.user.id,
+        workspaceId: session!.user.workspaceId!,
         read: false,
       },
     })
@@ -47,14 +47,14 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const body = await req.json()
     const parsed = markReadSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 })
 
-    const userId = session.user.id
-    const workspaceId = session.user.workspaceId
+    const userId = session!.user.id
+    const workspaceId = session!.user.workspaceId!
     const { ids, markAll } = parsed.data
 
     if (markAll || !ids || ids.length === 0) {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
 
 const createProjectSchema = z.object({
   name: z.string().min(1).max(200),
@@ -18,21 +19,21 @@ const createProjectSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const workspaceId = session!.user.workspaceId!
+    const admin = isAdmin(session)
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
 
     const projects = await prisma.project.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId,
         deletedAt: null,
         ...(status ? { status: status as "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED" } : {}),
+        ...(!admin ? { ownerId: session!.user.id } : {}),
       },
       include: {
         _count: { select: { tasks: { where: { deletedAt: null } } } },
@@ -69,12 +70,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createProjectSchema.safeParse(body)
@@ -86,8 +83,8 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const project = await prisma.project.create({
       data: {

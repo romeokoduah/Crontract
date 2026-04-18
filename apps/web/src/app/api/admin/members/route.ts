@@ -13,10 +13,10 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const memberships = await prisma.membership.findMany({
-      where: { workspaceId: session.user.workspaceId },
+      where: { workspaceId: session!.user.workspaceId! },
       include: {
         user: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true } },
         role: { select: { id: true, name: true } },
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const body = await req.json()
     const parsed = inviteSchema.safeParse(body)
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid input", detail: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 })
     }
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     // Verify role belongs to workspace
     const role = await prisma.role.findFirst({ where: { id: parsed.data.roleId, workspaceId } })

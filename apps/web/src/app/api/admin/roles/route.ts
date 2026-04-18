@@ -7,12 +7,12 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     // Fetch all roles for workspace with their permissions (optimized single query)
     const [roles, allPermissions] = await Promise.all([
       prisma.role.findMany({
-        where: { workspaceId: session.user.workspaceId },
+        where: { workspaceId: session!.user.workspaceId! },
         include: {
           permissions: {
             include: {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -23,18 +24,20 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const admin = isAdmin(session)
 
     const existing = await prisma.task.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
     if (!existing) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+
+    if (!admin && existing.assigneeId !== session!.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const body = await req.json()
@@ -69,8 +72,8 @@ export async function PATCH(
     if (data.status && data.status !== existing.status) {
       await prisma.auditLog.create({
         data: {
-          workspaceId: session.user.workspaceId,
-          userId: session.user.id,
+          workspaceId: session!.user.workspaceId!,
+          userId: session!.user.id,
           entityType: "task",
           entityId: task.id,
           action: "UPDATE",
@@ -101,18 +104,20 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-    if (!session.user.workspaceId) {
-      return NextResponse.json({ error: "No workspace" }, { status: 403 })
-    }
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const admin = isAdmin(session)
 
     const existing = await prisma.task.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId, deletedAt: null },
+      where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
     if (!existing) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+
+    if (!admin && existing.assigneeId !== session!.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     await prisma.task.update({
@@ -122,8 +127,8 @@ export async function DELETE(
 
     await prisma.auditLog.create({
       data: {
-        workspaceId: session.user.workspaceId,
-        userId: session.user.id,
+        workspaceId: session!.user.workspaceId!,
+        userId: session!.user.id,
         entityType: "task",
         entityId: params.id,
         action: "DELETE",

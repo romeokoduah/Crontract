@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
 
 const patchSchema = z.object({
   status: z.enum(["REPORTED", "UNDER_INVESTIGATION", "CORRECTIVE_ACTIONS", "CLOSED", "REOPENED"]).optional(),
@@ -20,13 +21,19 @@ const patchSchema = z.object({
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const admin = isAdmin(session)
 
     const incident = await prisma.incident.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId },
+      where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!incident) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    if (!admin && incident.reportedBy !== session!.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     // Enrich with user info
     const userIds = [incident.reportedBy, incident.investigator].filter((id): id is string => !!id)
@@ -51,11 +58,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const existing = await prisma.incident.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId },
+      where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -65,8 +72,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Invalid input", detail: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 })
     }
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const incident = await prisma.incident.update({
       where: { id: params.id },

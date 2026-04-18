@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requireAdminRole } from "@/lib/authorization"
 
 const lineSchema = z.object({
   description: z.string().min(1),
@@ -25,15 +26,15 @@ const createInvoiceSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
 
     const invoices = await prisma.invoice.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId: session!.user.workspaceId!,
         ...(status ? { status: status as "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED" } : {}),
       },
       orderBy: { createdAt: "desc" },
@@ -49,8 +50,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createInvoiceSchema.safeParse(body)
@@ -62,8 +63,8 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const subtotal = data.lines.reduce((sum, l) => sum + l.amount, 0)
     const total = subtotal + data.tax

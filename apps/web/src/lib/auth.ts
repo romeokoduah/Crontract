@@ -13,12 +13,14 @@ declare module "next-auth" {
       workspaceId?: string
       workspaceName?: string
       role?: string
+      mustChangePassword?: boolean
     }
   }
   interface User {
     id: string
     email: string
     name: string
+    mustChangePassword?: boolean
   }
 }
 
@@ -28,6 +30,7 @@ declare module "next-auth/jwt" {
     workspaceId?: string
     workspaceName?: string
     role?: string
+    mustChangePassword?: boolean
   }
 }
 
@@ -60,6 +63,15 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        // Check if temp password has expired
+        if (
+          user.mustChangePassword &&
+          user.tempPasswordExpiresAt &&
+          user.tempPasswordExpiresAt < new Date()
+        ) {
+          throw new Error("TEMP_PASSWORD_EXPIRED")
+        }
+
         const isValid = await compare(credentials.password, user.passwordHash)
         if (!isValid) {
           return null
@@ -69,6 +81,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          mustChangePassword: user.mustChangePassword,
         }
       },
     }),
@@ -77,6 +90,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
+        token.mustChangePassword = user.mustChangePassword ?? false
 
         // Get the user's first workspace
         const membership = await prisma.membership.findFirst({
@@ -115,6 +129,11 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // Handle password changed — clear the flag
+      if (trigger === "update" && session?.mustChangePassword === false) {
+        token.mustChangePassword = false
+      }
+
       return token
     },
     async session({ session, token }) {
@@ -122,6 +141,7 @@ export const authOptions: NextAuthOptions = {
       session.user.workspaceId = token.workspaceId
       session.user.workspaceName = token.workspaceName
       session.user.role = token.role
+      session.user.mustChangePassword = token.mustChangePassword
       return session
     },
   },

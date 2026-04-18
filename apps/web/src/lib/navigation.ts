@@ -16,6 +16,8 @@ import {
   Heart,
   Briefcase,
   Shield,
+  Megaphone,
+  UserCircle,
   type LucideIcon,
 } from "lucide-react"
 
@@ -120,24 +122,99 @@ export const mainNavItems: NavItem[] = [
     href: "/grants",
     icon: Heart,
     module: "grants",
+    children: [
+      { title: "Overview", href: "/grants", icon: Heart },
+      { title: "Grants", href: "/grants/grants", icon: Heart },
+      { title: "Donors", href: "/grants/donors", icon: Heart },
+      { title: "Logframes", href: "/grants/logframes", icon: Heart },
+      { title: "Indicators", href: "/grants/indicators", icon: Heart },
+      { title: "Reports", href: "/grants/reports", icon: Heart },
+    ],
   },
   {
     title: "CRM",
     href: "/crm",
     icon: Briefcase,
     module: "crm",
+    children: [
+      { title: "Overview", href: "/crm", icon: Briefcase },
+      { title: "Contacts", href: "/crm/contacts", icon: Briefcase },
+      { title: "Companies", href: "/crm/companies", icon: Briefcase },
+      { title: "Deals", href: "/crm/deals", icon: Briefcase },
+      { title: "Pipeline", href: "/crm/pipeline", icon: Briefcase },
+      { title: "Activities", href: "/crm/activities", icon: Briefcase },
+    ],
   },
   {
     title: "Compliance",
     href: "/compliance",
     icon: Shield,
     module: "compliance",
+    children: [
+      { title: "Overview", href: "/compliance", icon: Shield },
+      { title: "Obligations", href: "/compliance/obligations", icon: Shield },
+      { title: "Licences", href: "/compliance/licences", icon: Shield },
+      { title: "Policies", href: "/compliance/policies", icon: Shield },
+      { title: "Audits", href: "/compliance/audits", icon: Shield },
+      { title: "Actions", href: "/compliance/actions", icon: Shield },
+    ],
+  },
+  {
+    title: "Social Media",
+    href: "/social-media",
+    icon: Megaphone,
+    module: "social-media",
+    children: [
+      { title: "Overview", href: "/social-media", icon: Megaphone },
+      { title: "Compose", href: "/social-media/compose", icon: Megaphone },
+      { title: "Calendar", href: "/social-media/calendar", icon: Megaphone },
+      { title: "Posts", href: "/social-media/posts", icon: Megaphone },
+      { title: "Accounts", href: "/social-media/accounts", icon: Megaphone },
+    ],
   },
   {
     title: "Reports",
     href: "/reports",
     icon: BarChart3,
     module: "reports",
+  },
+]
+
+export const employeeNavItems: NavItem[] = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "My Projects",
+    href: "/projects",
+    icon: FolderKanban,
+  },
+  {
+    title: "My Tasks",
+    href: "/projects", // projects page shows their tasks
+    icon: CheckSquare,
+  },
+  {
+    title: "Meetings",
+    href: "/meetings",
+    icon: Calendar,
+  },
+  {
+    title: "Documents",
+    href: "/documents",
+    icon: FileText,
+  },
+  {
+    title: "Notifications",
+    href: "/notifications",
+    icon: Bell,
+  },
+  {
+    title: "My Profile",
+    href: "/profile",
+    icon: UserCircle,
   },
 ]
 
@@ -164,16 +241,16 @@ export const modulesByBusinessType: Record<string, string[]> = {
   MINING_CONTRACTOR: [
     "people", "projects", "meetings", "documents", "approvals",
     "finance", "budget", "procurement", "assets", "hse",
-    "compliance", "reports",
+    "compliance", "crm", "grants", "social-media", "reports",
   ],
   NGO: [
     "people", "projects", "meetings", "documents", "approvals",
-    "finance", "budget", "procurement", "grants",
-    "reports",
+    "finance", "budget", "procurement", "grants", "crm",
+    "compliance", "social-media", "reports",
   ],
   STARTUP: [
     "people", "projects", "meetings", "documents", "approvals",
-    "finance", "budget", "crm",
-    "reports",
+    "finance", "budget", "crm", "social-media",
+    "compliance", "grants", "reports",
   ],
 }

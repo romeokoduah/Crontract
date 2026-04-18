@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 
 const createIncidentSchema = z.object({
   title: z.string().min(1).max(500),
@@ -22,8 +23,11 @@ const createIncidentSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const workspaceId = session!.user.workspaceId!
+    const admin = isAdmin(session)
 
     const { searchParams } = new URL(req.url)
     const severity = searchParams.get("severity")
@@ -32,7 +36,8 @@ export async function GET(req: NextRequest) {
 
     const incidents = await prisma.incident.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId,
+        ...(!admin ? { reportedBy: session!.user.id } : {}),
         ...(severity ? { severity: severity as "NEAR_MISS" | "MINOR" | "MODERATE" | "MAJOR" | "FATAL" } : {}),
         ...(status ? { status: status as "REPORTED" | "UNDER_INVESTIGATION" | "CORRECTIVE_ACTIONS" | "CLOSED" | "REOPENED" } : {}),
         ...(type ? { type: type as "INJURY" | "PROPERTY_DAMAGE" | "ENVIRONMENTAL" | "NEAR_MISS" | "VEHICLE" | "FIRE" | "CHEMICAL" | "ELECTRICAL" | "OTHER" } : {}),
@@ -62,8 +67,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const body = await req.json()
     const parsed = createIncidentSchema.safeParse(body)
@@ -71,8 +76,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid input", detail: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 })
     }
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     // Generate incident number
     const count = await prisma.incident.count({ where: { workspaceId } })

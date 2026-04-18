@@ -19,10 +19,10 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const workspace = await prisma.workspace.findUnique({
-      where: { id: session.user.workspaceId },
+      where: { id: session!.user.workspaceId! },
       select: {
         id: true, name: true, legalName: true, slug: true,
         businessType: true, country: true, currency: true,
@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
 
     const body = await req.json()
     const parsed = patchSchema.safeParse(body)
@@ -51,8 +51,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Invalid input", detail: parsed.error.issues.map((i) => i.message).join(", ") }, { status: 400 })
     }
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     // Check slug uniqueness if changing
     if (parsed.data.slug) {

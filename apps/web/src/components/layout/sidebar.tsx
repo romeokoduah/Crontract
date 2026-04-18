@@ -4,7 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { mainNavItems, adminNavItems, type NavItem } from "@/lib/navigation"
+import { mainNavItems, adminNavItems, employeeNavItems, type NavItem } from "@/lib/navigation"
+import { ADMIN_ROLES } from "@/lib/authorization"
 import {
   ChevronDown,
   ChevronLeft,
@@ -28,6 +29,7 @@ interface SidebarProps {
   collapsed: boolean
   onToggle: () => void
   enabledModules?: string[]
+  role?: string
 }
 
 function NavItemLink({
@@ -121,13 +123,17 @@ function NavItemLink({
   )
 }
 
-export function Sidebar({ collapsed, onToggle, enabledModules }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, enabledModules, role }: SidebarProps) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
 
-  const filteredItems = mainNavItems.filter(
-    (item) => !item.module || !enabledModules || enabledModules.includes(item.module)
-  )
+  const isAdminUser = role && ADMIN_ROLES.includes(role as (typeof ADMIN_ROLES)[number])
+
+  const navItems = isAdminUser
+    ? mainNavItems.filter(
+        (item) => !item.module || !enabledModules || enabledModules.includes(item.module)
+      )
+    : employeeNavItems
 
   return (
     <TooltipProvider>
@@ -157,9 +163,9 @@ export function Sidebar({ collapsed, onToggle, enabledModules }: SidebarProps) {
         {/* Navigation */}
         <ScrollArea className="flex-1 px-2 py-3">
           <div className="space-y-1">
-            {filteredItems.map((item) => (
+            {navItems.map((item) => (
               <NavItemLink
-                key={item.href}
+                key={item.href + item.title}
                 item={item}
                 collapsed={collapsed}
                 pathname={pathname}
@@ -167,18 +173,22 @@ export function Sidebar({ collapsed, onToggle, enabledModules }: SidebarProps) {
             ))}
           </div>
 
-          <Separator className="my-3 bg-sidebar-border" />
+          {isAdminUser && (
+            <>
+              <Separator className="my-3 bg-sidebar-border" />
 
-          <div className="space-y-1">
-            {adminNavItems.map((item) => (
-              <NavItemLink
-                key={item.href}
-                item={item}
-                collapsed={collapsed}
-                pathname={pathname}
-              />
-            ))}
-          </div>
+              <div className="space-y-1">
+                {adminNavItems.map((item) => (
+                  <NavItemLink
+                    key={item.href}
+                    item={item}
+                    collapsed={collapsed}
+                    pathname={pathname}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </ScrollArea>
 
         {/* Footer */}

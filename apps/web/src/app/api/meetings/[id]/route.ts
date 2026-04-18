@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
 
 const patchMeetingSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -23,13 +24,19 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const admin = isAdmin(session)
 
     const meeting = await prisma.meeting.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId },
+      where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!meeting) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    if (!admin && !(meeting.attendees as string[]).includes(session!.user.id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     // Enrich with project name
     const project = meeting.projectId
@@ -58,11 +65,11 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const existing = await prisma.meeting.findFirst({
-      where: { id: params.id, workspaceId: session.user.workspaceId },
+      where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -75,7 +82,8 @@ export async function PATCH(
       )
     }
 
-    const { workspaceId, id: userId } = session.user
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
     const data = parsed.data
 
     const meeting = await prisma.meeting.update({

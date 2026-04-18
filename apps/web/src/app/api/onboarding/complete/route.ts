@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
     }
 
-    if (!session.user.workspaceId) {
+    if (!session!.user.workspaceId!) {
       return NextResponse.json(
         { error: "No workspace found for this account" },
         { status: 400 }
@@ -119,8 +119,8 @@ export async function POST(req: NextRequest) {
       invites,
     } = parsed.data
 
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     await prisma.$transaction(async (tx) => {
       // 1. Update workspace

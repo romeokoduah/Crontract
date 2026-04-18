@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requireAdminRole } from "@/lib/authorization"
 
 const lineSchema = z.object({
   description: z.string().min(1),
@@ -25,15 +26,15 @@ const createPOSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
 
     const orders = await prisma.purchaseOrder.findMany({
       where: {
-        workspaceId: session.user.workspaceId,
+        workspaceId: session!.user.workspaceId!,
         ...(status ? { status: status as "DRAFT" | "SUBMITTED" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "BILLED" | "CANCELLED" } : {}),
       },
       include: {
@@ -52,8 +53,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session.user.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createPOSchema.safeParse(body)
@@ -65,8 +66,8 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const workspaceId = session.user.workspaceId
-    const userId = session.user.id
+    const workspaceId = session!.user.workspaceId!
+    const userId = session!.user.id
 
     const vendor = await prisma.vendor.findFirst({ where: { id: data.vendorId, workspaceId, deletedAt: null } })
     if (!vendor) return NextResponse.json({ error: "Vendor not found" }, { status: 404 })
