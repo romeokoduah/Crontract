@@ -187,8 +187,8 @@ export default async function EmployeeDetailPage({
                 {employee.endDate && (
                   <InfoRow label="End Date" value={formatDate(employee.endDate)} />
                 )}
-                {employee.salary && (
-                  <InfoRow label="Salary" value={formatCurrency(Number(employee.salary))} />
+                {employee.basicSalary && (
+                  <InfoRow label="Basic Salary" value={formatCurrency(Number(employee.basicSalary))} />
                 )}
               </CardContent>
             </Card>

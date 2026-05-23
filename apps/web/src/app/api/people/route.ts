@@ -41,7 +41,7 @@ const createEmployeeSchema = z.object({
   managerId: z.string().uuid().optional(),
   employmentType: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT", "INTERN", "VOLUNTEER"]).default("FULL_TIME"),
   startDate: z.string().min(1),
-  salary: z.number().optional(),
+  basicSalary: z.number().optional(),
   emergencyName: z.string().optional(),
   emergencyPhone: z.string().optional(),
 })
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
         managerId: data.managerId,
         employmentType: data.employmentType,
         startDate: new Date(data.startDate),
-        salary: data.salary ? data.salary : undefined,
+        basicSalary: data.basicSalary ?? undefined,
         emergencyName: data.emergencyName,
         emergencyPhone: data.emergencyPhone,
         status: "ACTIVE",

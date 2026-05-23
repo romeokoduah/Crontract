@@ -282,7 +282,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100001", jobTitle: "Chief Executive Officer",
       departmentId: deptOps.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2020-01-15"), status: EmployeeStatus.ACTIVE,
-      salary: 18000, emergencyName: "Ama Asante", emergencyPhone: "+233244100099",
+      basicSalary: 18000, emergencyName: "Ama Asante", emergencyPhone: "+233244100099",
     },
   });
   const emp2 = await prisma.employee.create({
@@ -292,7 +292,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100002", jobTitle: "Site Manager",
       departmentId: deptOps.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2020-03-01"), status: EmployeeStatus.ACTIVE,
-      salary: 12000,
+      basicSalary: 12000,
     },
   });
   const emp3 = await prisma.employee.create({
@@ -302,7 +302,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100003", jobTitle: "HSE Officer",
       departmentId: deptHSE.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2021-06-01"), status: EmployeeStatus.ACTIVE,
-      salary: 9000,
+      basicSalary: 9000,
     },
   });
   const emp4 = await prisma.employee.create({
@@ -312,7 +312,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100004", jobTitle: "Finance Manager",
       departmentId: deptFinance.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2020-05-15"), status: EmployeeStatus.ACTIVE,
-      salary: 11000,
+      basicSalary: 11000,
     },
   });
   await prisma.employee.create({
@@ -322,7 +322,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100005", jobTitle: "Project Coordinator",
       departmentId: deptProjects.id, managerId: emp2.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2022-02-01"), status: EmployeeStatus.ACTIVE,
-      salary: 7500,
+      basicSalary: 7500,
     },
   });
   await prisma.employee.create({
@@ -332,7 +332,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100006", jobTitle: "Equipment Operator",
       departmentId: deptFleet.id, managerId: emp2.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2021-01-10"), status: EmployeeStatus.ACTIVE,
-      salary: 6000,
+      basicSalary: 6000,
     },
   });
   await prisma.employee.create({
@@ -342,7 +342,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100007", jobTitle: "Safety Inspector",
       departmentId: deptHSE.id, managerId: emp3.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2022-08-15"), status: EmployeeStatus.ACTIVE,
-      salary: 6500,
+      basicSalary: 6500,
     },
   });
   await prisma.employee.create({
@@ -352,7 +352,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100008", jobTitle: "Accounts Officer",
       departmentId: deptFinance.id, managerId: emp4.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2022-11-01"), status: EmployeeStatus.ACTIVE,
-      salary: 5500,
+      basicSalary: 5500,
     },
   });
   await prisma.employee.create({
@@ -362,7 +362,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100009", jobTitle: "Procurement Officer",
       departmentId: deptFinance.id, managerId: emp4.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2023-01-16"), status: EmployeeStatus.ACTIVE,
-      salary: 5800,
+      basicSalary: 5800,
     },
   });
   await prisma.employee.create({
@@ -372,7 +372,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100010", jobTitle: "Fleet Supervisor",
       departmentId: deptFleet.id, managerId: emp2.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2021-09-01"), status: EmployeeStatus.ACTIVE,
-      salary: 7000,
+      basicSalary: 7000,
     },
   });
   await prisma.employee.create({
@@ -382,7 +382,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100011", jobTitle: "Site Engineer",
       departmentId: deptOps.id, managerId: emp2.id, employmentType: EmploymentType.CONTRACT,
       startDate: new Date("2023-07-01"), endDate: new Date("2024-06-30"), status: EmployeeStatus.ACTIVE,
-      salary: 8500,
+      basicSalary: 8500,
     },
   });
   await prisma.employee.create({
@@ -392,7 +392,7 @@ async function seedObuasiMining(permMap: Record<string, string>) {
       phone: "+233244100012", jobTitle: "Administrative Assistant",
       departmentId: deptFinance.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
       startDate: new Date("2023-04-01"), status: EmployeeStatus.ACTIVE,
-      salary: 4500,
+      basicSalary: 4500,
     },
   });
 
@@ -826,7 +826,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Ama", lastName: "Darko", email: "admin@horizon-ghana.org",
       phone: "+233244200001", jobTitle: "Executive Director",
       departmentId: deptAdmin.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2018-04-01"), status: EmployeeStatus.ACTIVE, salary: 14000,
+      startDate: new Date("2018-04-01"), status: EmployeeStatus.ACTIVE, basicSalary: 14000,
     },
   });
   const emp2 = await prisma.employee.create({
@@ -835,7 +835,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Kwesi", lastName: "Appiah", email: "kwesi.appiah@horizon-ghana.org",
       phone: "+233244200002", jobTitle: "Program Manager",
       departmentId: deptPrograms.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2019-09-01"), status: EmployeeStatus.ACTIVE, salary: 9500,
+      startDate: new Date("2019-09-01"), status: EmployeeStatus.ACTIVE, basicSalary: 9500,
     },
   });
   await prisma.employee.create({
@@ -844,7 +844,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Senam", lastName: "Fiagbe", email: "senam.fiagbe@horizon-ghana.org",
       phone: "+233244200003", jobTitle: "Finance Officer",
       departmentId: deptFinance.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2020-03-15"), status: EmployeeStatus.ACTIVE, salary: 7500,
+      startDate: new Date("2020-03-15"), status: EmployeeStatus.ACTIVE, basicSalary: 7500,
     },
   });
   await prisma.employee.create({
@@ -853,7 +853,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Adjoa", lastName: "Quaye", email: "adjoa.quaye@horizon-ghana.org",
       phone: "+233244200004", jobTitle: "M&E Officer",
       departmentId: deptME.id, managerId: emp2.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2021-06-01"), status: EmployeeStatus.ACTIVE, salary: 6500,
+      startDate: new Date("2021-06-01"), status: EmployeeStatus.ACTIVE, basicSalary: 6500,
     },
   });
   await prisma.employee.create({
@@ -862,7 +862,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Kobby", lastName: "Amoah", email: "kobby.amoah@horizon-ghana.org",
       phone: "+233244200005", jobTitle: "Program Officer - Education",
       departmentId: deptPrograms.id, managerId: emp2.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2021-11-01"), status: EmployeeStatus.ACTIVE, salary: 6000,
+      startDate: new Date("2021-11-01"), status: EmployeeStatus.ACTIVE, basicSalary: 6000,
     },
   });
   await prisma.employee.create({
@@ -871,7 +871,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Gifty", lastName: "Bediako", email: "gifty.bediako@horizon-ghana.org",
       phone: "+233244200006", jobTitle: "Community Liaison Officer",
       departmentId: deptPrograms.id, managerId: emp2.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2022-04-01"), status: EmployeeStatus.ACTIVE, salary: 5500,
+      startDate: new Date("2022-04-01"), status: EmployeeStatus.ACTIVE, basicSalary: 5500,
     },
   });
   await prisma.employee.create({
@@ -880,7 +880,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Ato", lastName: "Koomson", email: "ato.koomson@horizon-ghana.org",
       phone: "+233244200007", jobTitle: "Admin Officer",
       departmentId: deptAdmin.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2023-02-01"), status: EmployeeStatus.ACTIVE, salary: 5000,
+      startDate: new Date("2023-02-01"), status: EmployeeStatus.ACTIVE, basicSalary: 5000,
     },
   });
   await prisma.employee.create({
@@ -889,7 +889,7 @@ async function seedHorizonFoundation(permMap: Record<string, string>) {
       firstName: "Dede", lastName: "Tetteh", email: "dede.tetteh@horizon-ghana.org",
       phone: "+233244200008", jobTitle: "Field Officer",
       departmentId: deptPrograms.id, managerId: emp2.id, employmentType: EmploymentType.CONTRACT,
-      startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31"), status: EmployeeStatus.ACTIVE, salary: 4800,
+      startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31"), status: EmployeeStatus.ACTIVE, basicSalary: 4800,
     },
   });
 
@@ -1069,7 +1069,7 @@ async function seedKoboLabs(permMap: Record<string, string>) {
       firstName: "Kofi", lastName: "Mensah", email: "admin@kobolabs.com",
       phone: "+233244300001", jobTitle: "CEO & Co-Founder",
       departmentId: deptProduct.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2022-09-01"), status: EmployeeStatus.ACTIVE, salary: 12000,
+      startDate: new Date("2022-09-01"), status: EmployeeStatus.ACTIVE, basicSalary: 12000,
     },
   });
   const emp2 = await prisma.employee.create({
@@ -1078,7 +1078,7 @@ async function seedKoboLabs(permMap: Record<string, string>) {
       firstName: "Ama", lastName: "Boateng", email: "ama.boateng@kobolabs.com",
       phone: "+233244300002", jobTitle: "Head of Product",
       departmentId: deptProduct.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2022-09-01"), status: EmployeeStatus.ACTIVE, salary: 9000,
+      startDate: new Date("2022-09-01"), status: EmployeeStatus.ACTIVE, basicSalary: 9000,
     },
   });
   const emp3 = await prisma.employee.create({
@@ -1087,7 +1087,7 @@ async function seedKoboLabs(permMap: Record<string, string>) {
       firstName: "Kwame", lastName: "Antwi", email: "kwame.antwi@kobolabs.com",
       phone: "+233244300003", jobTitle: "Lead Engineer",
       departmentId: deptEng.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2022-10-15"), status: EmployeeStatus.ACTIVE, salary: 10000,
+      startDate: new Date("2022-10-15"), status: EmployeeStatus.ACTIVE, basicSalary: 10000,
     },
   });
   await prisma.employee.create({
@@ -1096,7 +1096,7 @@ async function seedKoboLabs(permMap: Record<string, string>) {
       firstName: "Nana", lastName: "Agyekum", email: "nana.agyekum@kobolabs.com",
       phone: "+233244300004", jobTitle: "Backend Engineer",
       departmentId: deptEng.id, managerId: emp3.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2023-04-01"), status: EmployeeStatus.ACTIVE, salary: 8000,
+      startDate: new Date("2023-04-01"), status: EmployeeStatus.ACTIVE, basicSalary: 8000,
     },
   });
   await prisma.employee.create({
@@ -1105,7 +1105,7 @@ async function seedKoboLabs(permMap: Record<string, string>) {
       firstName: "Abena", lastName: "Asante", email: "abena.asante@kobolabs.com",
       phone: "+233244300005", jobTitle: "Growth Manager",
       departmentId: deptGrowth.id, managerId: emp1.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2023-07-01"), status: EmployeeStatus.ACTIVE, salary: 7000,
+      startDate: new Date("2023-07-01"), status: EmployeeStatus.ACTIVE, basicSalary: 7000,
     },
   });
   await prisma.employee.create({
@@ -1114,7 +1114,7 @@ async function seedKoboLabs(permMap: Record<string, string>) {
       firstName: "Yaw", lastName: "Osei", email: "yaw.osei@kobolabs.com",
       phone: "+233244300006", jobTitle: "Frontend Engineer",
       departmentId: deptEng.id, managerId: emp3.id, employmentType: EmploymentType.FULL_TIME,
-      startDate: new Date("2024-01-08"), status: EmployeeStatus.ACTIVE, salary: 7500,
+      startDate: new Date("2024-01-08"), status: EmployeeStatus.ACTIVE, basicSalary: 7500,
     },
   });
 

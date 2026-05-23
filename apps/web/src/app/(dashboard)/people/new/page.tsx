@@ -46,7 +46,7 @@ const formSchema = z.object({
   managerId: z.string().optional(),
   employmentType: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT", "INTERN", "VOLUNTEER"]),
   startDate: z.string().min(1, "Start date is required"),
-  salary: z.string().optional(),
+  basicSalary: z.string().optional(),
   emergencyName: z.string().optional(),
   emergencyPhone: z.string().optional(),
 })
@@ -103,7 +103,7 @@ export default function NewEmployeePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
-          salary: values.salary ? parseFloat(values.salary) : undefined,
+          basicSalary: values.basicSalary ? parseFloat(values.basicSalary) : undefined,
           departmentId: values.departmentId || undefined,
           managerId: values.managerId || undefined,
         }),
@@ -305,10 +305,10 @@ export default function NewEmployeePage() {
               )}
               <FormField
                 control={form.control}
-                name="salary"
+                name="basicSalary"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Salary (GHS)</FormLabel>
+                    <FormLabel>Basic Salary (GHS)</FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="5000" min="0" step="0.01" {...field} />
                     </FormControl>
