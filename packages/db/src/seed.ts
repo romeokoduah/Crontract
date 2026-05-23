@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client"
 import { hash } from "bcryptjs"
 import { seedPayrollDefaults } from "./payroll-seed"
+import { seedPayrollPermissions } from "./permissions-seed"
 
 const prisma = new PrismaClient()
 
@@ -222,8 +223,9 @@ async function seedWorkspace(config: WorkspaceConfig, passwordHash: string) {
     }
   }
 
-  // Payroll defaults: Ghana 2024 tax rates + default pay components
+  // Payroll defaults: Ghana 2024 tax rates + default pay components + permissions
   await seedPayrollDefaults(prisma, wId, 2024)
+  await seedPayrollPermissions(prisma, wId)
 
   return { workspace, users }
 }
