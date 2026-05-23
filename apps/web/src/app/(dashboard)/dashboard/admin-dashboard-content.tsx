@@ -84,7 +84,7 @@ function getActionLabel(action: string, entityType: string) {
   }
 }
 
-export function DashboardContent({
+export function AdminDashboardContent({
   stats,
   recentActivity,
   userName,

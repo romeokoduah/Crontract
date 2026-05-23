@@ -12,7 +12,7 @@ Crontract is a multi-tenant enterprise operations platform built for small and m
 
 - Node.js 20+
 - pnpm (`npm install -g pnpm`)
-- Docker & Docker Compose
+- PostgreSQL 16+
 
 ### Setup (under 5 minutes)
 
@@ -22,18 +22,17 @@ git clone <repo-url> crontract
 cd crontract
 pnpm install
 
-# 2. Start infrastructure
-docker compose up -d
+# 2. Create the database
+createdb crontract_dev
 
 # 3. Set up environment
 cp .env.example apps/web/.env.local
 
-# 4. Push database schema
-cd apps/web
-npx prisma db push
+# 4. Push database schema & generate client
+pnpm run db:push
 
 # 5. Seed demo data
-npx prisma db seed
+pnpm run db:seed
 
 # 6. Start the app
 pnpm dev
@@ -43,13 +42,15 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ### Demo Credentials
 
-All demo accounts use password: `demo123456`
+All demo accounts use password: `password123`
 
-| Workspace | Email | Type |
-|---|---|---|
-| Obuasi Mining Services Ltd | admin@obuasi-mining.com | Mining Contractor |
-| Horizon Foundation Ghana | admin@horizon-ghana.org | NGO |
-| Kobo Labs | admin@kobolabs.com | Startup |
+| Role | Email |
+|---|---|
+| Admin (Owner) | admin@crontract.io |
+| Manager | manager@crontract.io |
+| Employee | kofi@crontract.io |
+| Employee | abena@crontract.io |
+| Employee | yaw@crontract.io |
 
 ## Architecture
 
@@ -57,16 +58,15 @@ All demo accounts use password: `demo123456`
 crontract/
 ├── apps/
 │   └── web/              # Next.js 14 App Router (frontend + API)
-│       ├── prisma/       # Schema + seed
+│       ├── prisma/       # Schema symlink → packages/db
 │       └── src/
 │           ├── app/      # Pages and API routes
 │           ├── components/  # UI components (shadcn/ui)
 │           └── lib/      # Utilities, auth, db
 ├── packages/
-│   ├── db/               # Prisma client package
+│   ├── db/               # Prisma schema, client, seed
 │   ├── ui/               # Shared UI (future)
 │   └── config/           # Shared config (future)
-├── docker-compose.yml    # PostgreSQL, Redis, MinIO
 └── docs/
 ```
 
@@ -76,7 +76,6 @@ crontract/
 - **Backend:** Next.js API routes + Server Components
 - **Database:** PostgreSQL 16 via Prisma ORM
 - **Auth:** NextAuth.js with JWT sessions
-- **Infrastructure:** Docker Compose (Postgres, Redis, MinIO)
 
 ### Multi-tenancy
 
@@ -105,8 +104,11 @@ Fine-grained permissions in `module:entity:action` format (112 total). Roles are
 - **Assets** — Asset register, categories, depreciation, checkout
 - **HSE** — Incidents, permits to work, risk assessments, toolbox talks, training
 
-### Tier 3 — Segment-specific (Stubbed)
-- Grants & M&E, CRM, Compliance, Reports & Analytics
+### Tier 3 — Segment-specific (Shipped)
+- **Grants & M&E** — Donors, grants, logframes, indicators, reports
+- **CRM** — Contacts, companies, deals, pipeline, activities
+- **Compliance** — Obligations, licences, policies, audits, corrective actions
+- **Social Media** — Accounts, posts, calendar, compose
 
 ## Development
 
@@ -118,9 +120,9 @@ pnpm dev
 pnpm build
 
 # Database commands
-npx prisma studio     # Visual DB browser
-npx prisma db push    # Push schema changes
-npx prisma db seed    # Re-seed demo data
+pnpm run db:push      # Push schema changes
+pnpm run db:seed      # Seed demo data
+npx prisma studio     # Visual DB browser (from packages/db)
 
 # Lint
 pnpm lint
@@ -132,12 +134,10 @@ pnpm lint
 
 See `.env.example` for all available configuration options.
 
-### Docker Compose
-
-The included `docker-compose.yml` starts:
-- PostgreSQL 16 on port 5434
-- Redis 7 on port 6379
-- MinIO on ports 9000/9001
+Key variables:
+- `DATABASE_URL` — PostgreSQL connection string (e.g. `postgresql://user@localhost:5432/crontract_dev`)
+- `NEXTAUTH_SECRET` — JWT signing secret
+- `NEXTAUTH_URL` — App URL (e.g. `http://localhost:3000`)
 
 ## License
 

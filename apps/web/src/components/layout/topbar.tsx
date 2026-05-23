@@ -13,11 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getInitials } from "@/lib/utils"
+import { ADMIN_ROLES } from "@/lib/authorization"
 import { signOut } from "next-auth/react"
 import Link from "next/link"
 
 export function Topbar() {
   const { data: session } = useSession()
+  const isAdminUser =
+    session?.user?.role &&
+    ADMIN_ROLES.includes(session.user.role as (typeof ADMIN_ROLES)[number])
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
@@ -87,11 +91,18 @@ export function Topbar() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/admin/workspace">Workspace Settings</Link>
+              <Link href="/profile">My Profile</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/users">Team</Link>
-            </DropdownMenuItem>
+            {isAdminUser && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/workspace">Workspace Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/users">Team</Link>
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>
               Sign out

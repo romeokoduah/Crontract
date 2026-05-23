@@ -193,7 +193,7 @@ export const employeeNavItems: NavItem[] = [
   },
   {
     title: "My Tasks",
-    href: "/projects", // projects page shows their tasks
+    href: "/tasks",
     icon: CheckSquare,
   },
   {

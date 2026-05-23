@@ -10,11 +10,11 @@ Build compiles, all module pages render, seed data loads, auth works end-to-end.
 - [x] Monorepo setup (pnpm workspaces)
 - [x] Next.js 14 App Router with TypeScript strict mode
 - [x] Tailwind CSS + shadcn/ui component library (25+ components)
-- [x] PostgreSQL 16 via Docker Compose
+- [x] PostgreSQL 16 (local)
 - [x] Prisma ORM with comprehensive schema (30+ models, 15+ enums)
 - [x] NextAuth.js with credentials provider, JWT sessions
 - [x] Dark mode with custom design tokens (copper/amber brand)
-- [x] Docker Compose (Postgres, Redis, MinIO)
+- [x] Local development setup (no Docker required)
 - [x] Production build passes (lint + typecheck + build)
 
 ### Auth & Onboarding
@@ -62,7 +62,7 @@ Build compiles, all module pages render, seed data loads, auth works end-to-end.
 ## Stubbed (Functional but Simplified)
 
 - Email verification — schema supports it, UI flow is present, actual email sending requires Resend API key
-- File uploads — schema has `storageKey` fields, MinIO is configured in Docker, but upload UI not wired
+- File uploads — schema has `storageKey` fields, but upload UI and storage backend not wired yet
 - Email notifications — in-app notifications work, email digest not implemented
 - Gantt view — tab exists in project detail, shows placeholder
 - Report builder — Coming Soon page
