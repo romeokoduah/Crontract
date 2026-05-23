@@ -47,6 +47,11 @@ const formSchema = z.object({
   employmentType: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT", "INTERN", "VOLUNTEER"]),
   startDate: z.string().min(1, "Start date is required"),
   basicSalary: z.string().optional(),
+  ssnitNumber: z.string().optional(),
+  tin: z.string().optional(),
+  bankName: z.string().optional(),
+  bankAccount: z.string().optional(),
+  momoNumber: z.string().optional(),
   emergencyName: z.string().optional(),
   emergencyPhone: z.string().optional(),
 })
@@ -308,9 +313,84 @@ export default function NewEmployeePage() {
                 name="basicSalary"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Basic Salary (GHS)</FormLabel>
+                    <FormLabel>Basic Salary (GHS / month)</FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="5000" min="0" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Payroll Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Payroll Details</CardTitle>
+              <CardDescription>Tax IDs and payment information for payroll runs</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="ssnitNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>SSNIT Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="A123456789B" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="tin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>TIN</FormLabel>
+                    <FormControl>
+                      <Input placeholder="P0001234567" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="bankName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bank Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ghana Commercial Bank" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="bankAccount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bank Account</FormLabel>
+                    <FormControl>
+                      <Input placeholder="1011000123456" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="momoNumber"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Mobile Money Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+233 24 000 0000" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
