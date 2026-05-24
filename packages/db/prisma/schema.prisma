@@ -167,6 +167,13 @@ model Workspace {
   socialAccounts SocialAccount[]
   socialPosts    SocialPost[]
 
+  // Payroll
+  taxRates          TaxRateTable[]
+  payComponents     PayComponent[]
+  payrollLoans      PayrollLoan[]
+  payrollRuns       PayrollRun[]
+  payrollGlMappings PayrollGlMapping[]
+
   @@map("workspaces")
 }
 
@@ -451,7 +458,14 @@ model Employee {
   startDate      DateTime       @map("start_date")
   endDate        DateTime?      @map("end_date")
   status         EmployeeStatus @default(ACTIVE)
-  salary         Decimal?       @db.Decimal(12, 2)
+  basicSalary    Decimal?       @map("basic_salary") @db.Decimal(12, 2)
+  ssnitNumber    String?        @map("ssnit_number")
+  tin            String?
+  bankName       String?        @map("bank_name")
+  bankAccount    String?        @map("bank_account")
+  momoNumber     String?        @map("momo_number")
+  currency       String         @default("GHS")
+  taxReliefs     Json?          @map("tax_reliefs")
   emergencyName  String?        @map("emergency_name")
   emergencyPhone String?        @map("emergency_phone")
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -462,6 +476,10 @@ model Employee {
   department Department? @relation(fields: [departmentId], references: [id])
   manager    Employee?   @relation("EmployeeManager", fields: [managerId], references: [id])
   reports    Employee[]  @relation("EmployeeManager")
+
+  payslips   Payslip[]
+  paySetups  EmployeePaySetup[]
+  loans      PayrollLoan[]
 
   @@unique([workspaceId, employeeNumber])
   @@map("employees")
@@ -676,6 +694,7 @@ model Account_GL {
   parent      Account_GL?   @relation("AccountTree", fields: [parentId], references: [id])
   children    Account_GL[]  @relation("AccountTree")
   journalLines JournalLine[]
+  payrollGlMappings PayrollGlMapping[]
 
   @@unique([workspaceId, code])
   @@map("chart_of_accounts")
@@ -703,6 +722,7 @@ model Journal {
 
   workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lines     JournalLine[]
+  payrollRuns PayrollRun[]
 
   @@unique([workspaceId, number])
   @@map("journals")
@@ -1816,4 +1836,205 @@ enum SocialPostPlatformStatus {
   PENDING
   PUBLISHED
   FAILED
+}
+
+// ============================================================
+// PAYROLL
+// ============================================================
+
+model TaxRateTable {
+  id          String      @id @default(uuid()) @db.Uuid
+  workspaceId String      @map("workspace_id") @db.Uuid
+  taxYear     Int         @map("tax_year")
+  type        TaxRateType
+  value       Decimal     @db.Decimal(10, 4)
+  bracketMin  Decimal?    @map("bracket_min") @db.Decimal(14, 2)
+  bracketMax  Decimal?    @map("bracket_max") @db.Decimal(14, 2)
+  sequence    Int         @default(0)
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, taxYear, type])
+  @@map("tax_rate_table")
+}
+
+enum TaxRateType {
+  PAYE_BRACKET
+  SSNIT_EMPLOYEE
+  SSNIT_EMPLOYER
+  TIER2
+  RELIEF_PERSONAL
+  RELIEF_MARRIAGE
+  RELIEF_DEPENDANT_PER_CHILD
+  RELIEF_OLD_AGE
+  RELIEF_AGED_DEPENDANT
+  RELIEF_DISABILITY_PCT
+}
+
+model PayComponent {
+  id            String           @id @default(uuid()) @db.Uuid
+  workspaceId   String           @map("workspace_id") @db.Uuid
+  code          String
+  name          String
+  type          PayComponentType
+  taxable       Boolean          @default(true)
+  pensionable   Boolean          @default(false)
+  defaultAmount Decimal?         @map("default_amount") @db.Decimal(12, 2)
+  sequence      Int              @default(0)
+  deletedAt     DateTime?        @map("deleted_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  workspace      Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  employeeSetups EmployeePaySetup[]
+
+  @@unique([workspaceId, code])
+  @@map("pay_components")
+}
+
+enum PayComponentType {
+  EARNING
+  DEDUCTION
+  STATUTORY
+  LOAN
+}
+
+model EmployeePaySetup {
+  id             String   @id @default(uuid()) @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  payComponentId String   @map("pay_component_id") @db.Uuid
+  amount         Decimal  @db.Decimal(12, 2)
+  startDate      DateTime @map("start_date")
+  endDate        DateTime? @map("end_date")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payComponent PayComponent @relation(fields: [payComponentId], references: [id])
+
+  @@unique([employeeId, payComponentId, startDate])
+  @@map("employee_pay_setups")
+}
+
+model PayrollLoan {
+  id               String            @id @default(uuid()) @db.Uuid
+  workspaceId      String            @map("workspace_id") @db.Uuid
+  employeeId       String            @map("employee_id") @db.Uuid
+  principal        Decimal           @db.Decimal(12, 2)
+  monthlyDeduction Decimal           @map("monthly_deduction") @db.Decimal(12, 2)
+  startMonth       String            @map("start_month")
+  balance          Decimal           @db.Decimal(12, 2)
+  status           PayrollLoanStatus @default(ACTIVE)
+  createdBy        String            @map("created_by") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+
+  @@map("payroll_loans")
+}
+
+enum PayrollLoanStatus {
+  ACTIVE
+  PAID
+  CANCELLED
+}
+
+model PayrollRun {
+  id                String           @id @default(uuid()) @db.Uuid
+  workspaceId       String           @map("workspace_id") @db.Uuid
+  year              Int
+  month             Int
+  status            PayrollRunStatus @default(DRAFT)
+  totalGross        Decimal          @default(0) @map("total_gross") @db.Decimal(14, 2)
+  totalDeductions   Decimal          @default(0) @map("total_deductions") @db.Decimal(14, 2)
+  totalNet          Decimal          @default(0) @map("total_net") @db.Decimal(14, 2)
+  totalEmployerCost Decimal          @default(0) @map("total_employer_cost") @db.Decimal(14, 2)
+  createdBy         String           @map("created_by") @db.Uuid
+  approvedBy        String?          @map("approved_by") @db.Uuid
+  approvedAt        DateTime?        @map("approved_at")
+  postedBy          String?          @map("posted_by") @db.Uuid
+  postedAt          DateTime?        @map("posted_at")
+  postedJournalId   String?          @map("posted_journal_id") @db.Uuid
+  reversedAt        DateTime?        @map("reversed_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payslips  Payslip[]
+  journal   Journal?  @relation(fields: [postedJournalId], references: [id])
+
+  @@unique([workspaceId, year, month])
+  @@map("payroll_runs")
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  APPROVED
+  POSTED
+  REVERSED
+}
+
+model Payslip {
+  id                  String        @id @default(uuid()) @db.Uuid
+  payrollRunId        String        @map("payroll_run_id") @db.Uuid
+  employeeId          String        @map("employee_id") @db.Uuid
+  daysWorked          Int           @default(30) @map("days_worked")
+  basicSalary         Decimal       @map("basic_salary") @db.Decimal(12, 2)
+  totalEarnings       Decimal       @map("total_earnings") @db.Decimal(12, 2)
+  totalDeductions     Decimal       @map("total_deductions") @db.Decimal(12, 2)
+  gross               Decimal       @db.Decimal(12, 2)
+  paye                Decimal       @db.Decimal(12, 2)
+  ssnitEmployee       Decimal       @map("ssnit_employee") @db.Decimal(12, 2)
+  ssnitEmployer       Decimal       @map("ssnit_employer") @db.Decimal(12, 2)
+  tier2               Decimal       @db.Decimal(12, 2)
+  loanDeductions      Decimal       @map("loan_deductions") @db.Decimal(12, 2)
+  otherDeductions     Decimal       @map("other_deductions") @db.Decimal(12, 2)
+  netPay              Decimal       @map("net_pay") @db.Decimal(12, 2)
+  currency            String        @default("GHS")
+  componentsSnapshot  Json          @map("components_snapshot")
+  ytdGross            Decimal       @map("ytd_gross") @db.Decimal(14, 2)
+  ytdPaye             Decimal       @map("ytd_paye") @db.Decimal(14, 2)
+  ytdSsnit            Decimal       @map("ytd_ssnit") @db.Decimal(14, 2)
+  status              PayslipStatus @default(DRAFT)
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollRunId, employeeId])
+  @@index([employeeId])
+  @@map("payslips")
+}
+
+enum PayslipStatus {
+  DRAFT
+  APPROVED
+  POSTED
+  REVERSED
+}
+
+model PayrollGlMapping {
+  id          String            @id @default(uuid()) @db.Uuid
+  workspaceId String            @map("workspace_id") @db.Uuid
+  lineType    PayrollGlLineType
+  accountId   String            @map("account_id") @db.Uuid
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account   Account_GL @relation(fields: [accountId], references: [id])
+
+  @@unique([workspaceId, lineType])
+  @@map("payroll_gl_mappings")
+}
+
+enum PayrollGlLineType {
+  WAGES_EXPENSE
+  EMPLOYER_SSNIT_EXPENSE
+  EMPLOYER_TIER2_EXPENSE
+  SSNIT_PAYABLE
+  PAYE_PAYABLE
+  TIER2_PAYABLE
+  LOAN_RECEIVABLE
+  NET_PAY_CLEARING
 }

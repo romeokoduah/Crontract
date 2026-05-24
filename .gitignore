@@ -15,3 +15,6 @@ minio-data/
 redis-data/
 apps/web/.env
 apps/web/.env.local
+
+# Claude Code local settings
+.claude/

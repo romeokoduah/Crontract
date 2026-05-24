@@ -22,10 +22,10 @@ interface DemoWorkspace {
 
 const DEMO_WORKSPACES: DemoWorkspace[] = [
   {
-    name: "Obuasi Mining Co.",
-    description: "Underground mining contractor — Ghana",
+    name: "GoldStar Mining Ltd",
+    description: "Mining contractor — Tarkwa, GH",
     type: "MINING_CONTRACTOR",
-    adminEmail: "admin@obuasi-mining.com",
+    adminEmail: "admin@goldstar.io",
     country: "GH",
     icon: Pickaxe,
     accentColor: "text-amber-600 dark:text-amber-400",
@@ -44,7 +44,7 @@ const DEMO_WORKSPACES: DemoWorkspace[] = [
     modules: ["Finance", "HR", "Projects", "Donors", "Reports"],
   },
   {
-    name: "KoboLabs Startup",
+    name: "Kobo Labs",
     description: "B2B SaaS startup — Accra, GH",
     type: "STARTUP",
     adminEmail: "admin@kobolabs.com",
@@ -56,7 +56,7 @@ const DEMO_WORKSPACES: DemoWorkspace[] = [
   },
 ]
 
-const DEMO_PASSWORD = "demo123456"
+const DEMO_PASSWORD = "password123"
 
 export function DemoLogin() {
   const router = useRouter()

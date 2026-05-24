@@ -40,7 +40,7 @@ export default async function PeoplePage() {
 
   const serialisedEmployees = employees.map((e) => ({
     ...e,
-    salary: e.salary ? Number(e.salary) : null,
+    basicSalary: e.basicSalary ? Number(e.basicSalary) : null,
     startDate: e.startDate.toISOString(),
     endDate: e.endDate?.toISOString() ?? null,
     createdAt: e.createdAt.toISOString(),
