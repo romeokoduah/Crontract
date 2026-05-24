@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, CheckCircle2, FileDown, RotateCcw, Trash2 } from "lucide-react"
+import { Loader2, CheckCircle2, FileDown, RotateCcw, Trash2, Archive } from "lucide-react"
 import { toast } from "sonner"
 
 type Status = "DRAFT" | "APPROVED" | "POSTED" | "REVERSED"
@@ -130,6 +130,11 @@ export function RunDetailClient({ run }: { run: RunData }) {
             {busy === "Reverse" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1" />} Reverse
           </Button>
         )}
+        <a href={`/api/payroll/runs/${run.id}/payslips.zip`} target="_blank" rel="noopener">
+          <Button size="sm" variant="outline">
+            <Archive className="h-4 w-4 mr-1" /> Download all payslips (zip)
+          </Button>
+        </a>
       </div>
 
       <Card>
