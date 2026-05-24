@@ -3,10 +3,27 @@ import { TaxRateType } from "@prisma/client"
 import type { RatePack, Bracket } from "./types"
 
 export async function loadRatePack(workspaceId: string, year: number): Promise<RatePack> {
-  const rows = await prisma.taxRateTable.findMany({
+  // Try exact year first; if missing, fall back to the most recent year <= year.
+  // Admin can override per year via /payroll/tax-settings; otherwise the seeded
+  // baseline (2024) carries forward indefinitely.
+  let rows = await prisma.taxRateTable.findMany({
     where: { workspaceId, taxYear: year },
     orderBy: [{ type: "asc" }, { sequence: "asc" }],
   })
+
+  if (rows.length === 0) {
+    const mostRecent = await prisma.taxRateTable.findFirst({
+      where: { workspaceId, taxYear: { lte: year } },
+      orderBy: { taxYear: "desc" },
+      select: { taxYear: true },
+    })
+    if (mostRecent) {
+      rows = await prisma.taxRateTable.findMany({
+        where: { workspaceId, taxYear: mostRecent.taxYear },
+        orderBy: [{ type: "asc" }, { sequence: "asc" }],
+      })
+    }
+  }
 
   const get = (type: TaxRateType) => Number(rows.find(r => r.type === type)?.value ?? 0)
 

@@ -18,6 +18,7 @@ import {
   Shield,
   Megaphone,
   UserCircle,
+  Wallet,
   type LucideIcon,
 } from "lucide-react"
 
@@ -84,6 +85,18 @@ export const mainNavItems: NavItem[] = [
     href: "/budget",
     icon: PiggyBank,
     module: "budget",
+  },
+  {
+    title: "Payroll",
+    href: "/payroll",
+    icon: Wallet,
+    module: "payroll",
+    children: [
+      { title: "Runs", href: "/payroll", icon: Wallet },
+      { title: "Pay Components", href: "/payroll/components", icon: Wallet },
+      { title: "Loans", href: "/payroll/loans", icon: Wallet },
+      { title: "GL Mapping", href: "/payroll/gl-mapping", icon: Wallet },
+    ],
   },
   {
     title: "Procurement",

@@ -23,6 +23,49 @@ const DEFAULT_COMPONENTS = [
   { code: "TIER2",     name: "Tier 2 (5%)",         type: PayComponentType.STATUTORY, taxable: false, pensionable: false, sequence: 102 },
 ]
 
+/**
+ * Set basic salaries + pay setups on existing employees so a fresh workspace
+ * has a usable payroll demo. Idempotent.
+ */
+export async function seedDemoEmployeePayroll(
+  prisma: PrismaClient,
+  workspaceId: string,
+  salaryByEmail: Record<string, { basic: number; housing?: number; transport?: number }>,
+) {
+  const components = await prisma.payComponent.findMany({ where: { workspaceId, deletedAt: null } })
+  const byCode = new Map(components.map(c => [c.code, c]))
+  const startDate = new Date(new Date().getFullYear(), 0, 1)
+
+  for (const [email, amounts] of Object.entries(salaryByEmail)) {
+    const emp = await prisma.employee.findFirst({
+      where: { workspaceId, email },
+    })
+    if (!emp) continue
+
+    await prisma.employee.update({
+      where: { id: emp.id },
+      data: {
+        basicSalary: amounts.basic,
+        taxReliefs: { personal: true, marriage: false, dependantChildren: 0, oldAge: false, agedDependant: false, disability: false },
+      },
+    })
+
+    // Wipe existing setups for this employee then recreate (idempotent)
+    await prisma.employeePaySetup.deleteMany({ where: { employeeId: emp.id } })
+
+    if (amounts.housing && byCode.has("HOUSING")) {
+      await prisma.employeePaySetup.create({
+        data: { employeeId: emp.id, payComponentId: byCode.get("HOUSING")!.id, amount: amounts.housing, startDate },
+      })
+    }
+    if (amounts.transport && byCode.has("TRANSPORT")) {
+      await prisma.employeePaySetup.create({
+        data: { employeeId: emp.id, payComponentId: byCode.get("TRANSPORT")!.id, amount: amounts.transport, startDate },
+      })
+    }
+  }
+}
+
 export async function seedPayrollDefaults(prisma: PrismaClient, workspaceId: string, taxYear = 2024) {
   await prisma.taxRateTable.deleteMany({ where: { workspaceId, taxYear } })
 

@@ -105,9 +105,9 @@ describe("computePayslip", () => {
     expect(computePayslip(base).tier2).toBeCloseTo(600, 2)
   })
 
-  it("net = gross - PAYE - SSNIT_EE - Tier2 (no loans)", () => {
+  it("net = gross - PAYE - SSNIT_EE (Tier 2 is employer-paid, not employee deduction)", () => {
     const out = computePayslip(base)
-    expect(out.netPay).toBeCloseTo(out.gross - out.paye - out.ssnitEmployee - out.tier2, 2)
+    expect(out.netPay).toBeCloseTo(out.gross - out.paye - out.ssnitEmployee, 2)
   })
 
   it("pro-rates basic and earnings when daysWorked < daysInMonth", () => {

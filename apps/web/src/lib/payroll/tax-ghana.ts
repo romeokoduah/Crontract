@@ -58,7 +58,10 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
   let otherDeductions = round2(otherComponents.reduce((s, c) => s + c.amount, 0))
 
   const gross = round2(basicPro + totalEarningsPro)
-  const statutory = round2(ssnitEmployee + tier2 + monthlyPAYE)
+  // Tier 2 is employer-paid in Ghana (mandatory occupational pension to a private trustee) —
+  // it's reported on the payslip but NOT deducted from the employee's net pay.
+  // Only SSNIT employee (5.5%) and PAYE come off the employee's pocket as statutory.
+  const statutory = round2(ssnitEmployee + monthlyPAYE)
   let totalDeductions = round2(statutory + loanDeductions + otherDeductions)
 
   // Cap non-statutory deductions so net pay can't go negative.
