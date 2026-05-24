@@ -42,9 +42,11 @@ export default async function PayrollPage() {
           <h1 className="text-2xl font-semibold">Payroll</h1>
           <p className="text-sm text-muted-foreground mt-1">Monthly Ghana-statutory payroll runs.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link href="/payroll/components"><Button variant="outline" size="sm"><Coins className="h-4 w-4 mr-1.5" /> Components</Button></Link>
           <Link href="/payroll/loans"><Button variant="outline" size="sm">Loans</Button></Link>
+          <Link href="/payroll/ytd"><Button variant="outline" size="sm">YTD</Button></Link>
+          <Link href="/payroll/statutory"><Button variant="outline" size="sm">Statutory</Button></Link>
           <Link href="/payroll/gl-mapping"><Button variant="outline" size="sm"><Settings className="h-4 w-4 mr-1.5" /> GL Mapping</Button></Link>
           <Link href="/payroll/runs/new"><Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> New Run</Button></Link>
         </div>
