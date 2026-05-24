@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
-import { KeyRound, Loader2, Save } from "lucide-react"
+import { KeyRound, Loader2, Save, Wallet } from "lucide-react"
 
 interface ProfileData {
   user: {
@@ -255,6 +255,18 @@ export default function ProfilePage() {
       )}
 
       {/* Security */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Payroll</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={() => router.push("/profile/payslips")}>
+            <Wallet className="mr-2 h-4 w-4" />
+            My Payslips
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Security</CardTitle>
