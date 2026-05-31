@@ -69,6 +69,23 @@ casts on response bodies with type-safe `Uint8Array`).
 
 ---
 
+## Wave 2 — Test safety net (DONE)
+
+Coverage grew from **22 tests in 1 file → 52 tests in 4 files**, targeting the highest-risk pure logic:
+- `lib/payroll/journal-poster.test.ts` (new, 12) — **double-entry GL correctness**: asserts the journal
+  balances (DR == CR), each line maps to the right account with the right amount, multi-payslip
+  aggregation, currency rounding, the missing-GL-mapping and empty-run guards, reversal symmetry, and
+  loan-balance math (post/reverse/paid-off/ignore-unknown).
+- `lib/authorization.test.ts` (new, 10) — the auth gates: `isAdmin` (incl. case-sensitivity so a stray
+  `"owner"`/`"Admin"` can't escalate), `requireAuth` (401/403 ordering), `requireAdminRole` (checks
+  auth+workspace before role).
+- `lib/rate-limit.test.ts` (new, 8) — limiter window/reset/isolation and the 429 response shape.
+- `lib/payroll/tax-ghana.test.ts` (existing, 22) — PAYE brackets, reliefs, payslip computation.
+
+_Follow-up:_ add route-level integration tests against an ephemeral Postgres (the route handlers and
+`run-builder.ts` import the Prisma singleton directly, so they need a test DB or a module mock rather
+than a stub). The pure money/security invariants are now locked.
+
 ## Observations to address in later waves
 - **Password policy is inconsistent** across flows: signup `min 8` (no complexity), accept-invite
   `min 8 + upper + number`, change-password `min 10 + full complexity`. Unify (Wave 3).
