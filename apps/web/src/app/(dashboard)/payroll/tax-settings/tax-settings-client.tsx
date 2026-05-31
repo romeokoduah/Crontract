@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Plus, Trash2 } from "lucide-react"
@@ -48,16 +48,16 @@ export function TaxSettingsClient({ defaultYear }: { defaultYear: number }) {
   const [dirty, setDirty] = useState<Record<string, Partial<Rate>>>({})
   const [newBracket, setNewBracket] = useState<{ min: string; max: string; rate: string }>({ min: "", max: "", rate: "" })
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const r = await fetch(`/api/payroll/tax-rates?year=${year}`)
     const d = await r.json()
     setRates(d.rates ?? [])
     setDirty({})
     setLoading(false)
-  }
+  }, [year])
 
-  useEffect(() => { load() }, [year])
+  useEffect(() => { load() }, [load])
 
   function patchLocal(id: string, patch: Partial<Rate>) {
     setDirty(d => ({ ...d, [id]: { ...d[id], ...patch } }))

@@ -3,15 +3,12 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { hashPassword } from "@/lib/auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { passwordSchema } from "@/lib/password-policy"
 
 const acceptInviteSchema = z.object({
   token: z.string().uuid(),
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Must contain at least one uppercase letter")
-    .regex(/[0-9]/, "Must contain at least one number"),
+  password: passwordSchema,
 })
 
 export async function POST(req: NextRequest) {

@@ -86,12 +86,16 @@ _Follow-up:_ add route-level integration tests against an ephemeral Postgres (th
 `run-builder.ts` import the Prisma singleton directly, so they need a test DB or a module mock rather
 than a stub). The pure money/security invariants are now locked.
 
+## Wave 3 — Code quality (DONE)
+- **Unified password policy** (`lib/password-policy.ts`, new): one shared zod schema (≥10 chars +
+  upper/lower/digit/symbol) now used by signup, accept-invite, and change-password — previously each
+  endpoint had its own divergent rule (signup was just `min 8`). Demo seed accounts are unaffected
+  (they're hashed directly, not run through these schemas).
+- **Fixed `packages/db` typecheck**: added `@types/node`; `pnpm -r typecheck` is now fully green.
+- **Fixed both `react-hooks/exhaustive-deps` warnings**: wrapped the `load()` fetchers in `useCallback`
+  in `tax-settings-client` and `pay-setup-client`. `next lint` now reports **0 warnings, 0 errors**.
+
 ## Observations to address in later waves
-- **Password policy is inconsistent** across flows: signup `min 8` (no complexity), accept-invite
-  `min 8 + upper + number`, change-password `min 10 + full complexity`. Unify (Wave 3).
-- **Near-zero test coverage** on money-handling routes (payroll runs, GL posting, finance, statutory
-  exports) — Wave 2.
-- `packages/db` typecheck broken — Wave 3.
 - No env-var validation at boot, no health endpoint, no structured logging/CI — Wave 4.
 
 ## Deferred / known-residual risk

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Plus, Trash2 } from "lucide-react"
@@ -32,7 +32,7 @@ export function PaySetupClient({ employeeId }: { employeeId: string }) {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ payComponentId: "", amount: "", startDate: today(), endDate: "" })
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const [a, b] = await Promise.all([
       fetch(`/api/payroll/employees/${employeeId}/setup`).then(r => r.json()),
@@ -41,9 +41,9 @@ export function PaySetupClient({ employeeId }: { employeeId: string }) {
     setSetups(a.setups ?? [])
     setComponents((b.components ?? []).filter((c: Component) => c.type !== "STATUTORY"))
     setLoading(false)
-  }
+  }, [employeeId])
 
-  useEffect(() => { load() }, [employeeId])
+  useEffect(() => { load() }, [load])
 
   function openNew() {
     setForm({ payComponentId: components[0]?.id ?? "", amount: "", startDate: today(), endDate: "" })

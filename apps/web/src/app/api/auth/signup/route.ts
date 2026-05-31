@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { hashPassword } from "@/lib/auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { passwordSchema } from "@/lib/password-policy"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -10,7 +11,7 @@ type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 const signupSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(8),
+  password: passwordSchema,
   companyName: z.string().min(2).max(100),
 })
 
