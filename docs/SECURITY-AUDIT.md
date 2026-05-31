@@ -95,8 +95,42 @@ than a stub). The pure money/security invariants are now locked.
 - **Fixed both `react-hooks/exhaustive-deps` warnings**: wrapped the `load()` fetchers in `useCallback`
   in `tax-settings-client` and `pay-setup-client`. `next lint` now reports **0 warnings, 0 errors**.
 
-## Observations to address in later waves
-- No env-var validation at boot, no health endpoint, no structured logging/CI — Wave 4.
+## Wave 4 — Production polish (DONE)
+- **Boot-time env validation** (`lib/env.ts` + `src/instrumentation.ts`): a zod-validated env schema runs
+  once at server startup so a misconfigured deployment fails fast with a readable error. Enforces a
+  32+ char `NEXTAUTH_SECRET` in production; `SKIP_ENV_VALIDATION=1` escape hatch for build steps.
+  Unit-tested (7 cases).
+- **Health probe** (`/api/health`): unauthenticated (allow-listed in middleware), runs `SELECT 1`,
+  returns 200/`db: up` or 503/`db: down`, `no-store`. For load balancers / uptime monitors.
+- **CI pipeline** (`.github/workflows/ci.yml`): on push to main + every PR — install (frozen lockfile),
+  generate Prisma clients, lint, `pnpm -r typecheck`, test, build (with placeholder env). Plus a
+  non-blocking high-severity dependency-audit job. Pinned `packageManager` to `pnpm@10.33.2`.
+
+## Final scorecard
+
+| Check | Before | After |
+|---|---|---|
+| Lint | 8 errors + 2 warnings | **0 / 0** |
+| Typecheck (workspace) | `packages/db` broken | **fully green** |
+| Tests | 22 in 1 file | **59 in 5 files** (GL balance, authz, rate-limit, env, tax) |
+| Build | ❌ (lint-blocked) | **✅** |
+| Dependency vulns | 18 (6 high) | **15** (residual = unpatchable Next 14.x) |
+| Rate limiting | none | login/signup/invite/change-password |
+| Security headers / CSP | none | full set + CSP |
+| Password policy | 3 divergent rules | 1 shared strong policy |
+| Boot env validation | none | zod-validated, fail-fast |
+| Health endpoint | none | `/api/health` |
+| CI | none | lint + typecheck + test + build + audit |
+
+## Recommended follow-ups (not in this engagement's scope)
+1. **Next.js 14 → 15 upgrade** — closes the 15 residual high/moderate advisories (DoS, SSRF,
+   middleware bypass). Top priority; do it behind the new test net. _(Deferred per decision.)_
+2. **Route-level integration tests** against an ephemeral Postgres — covers the DB-coupled handlers and
+   `run-builder.ts` that stubs can't reach.
+3. **Consolidate the two `schema.prisma` files** (`apps/web/prisma` and `packages/db/prisma`) to a single
+   source of truth to prevent schema drift.
+4. **Back the rate limiter with Redis** (`REDIS_URL` already wired) for multi-instance/serverless deploys.
+5. **Nonce-based CSP** — drop `script-src 'unsafe-inline'` once next-themes' inline script is replaced.
 
 ## Deferred / known-residual risk
 - **Next.js 14 → 15 upgrade.** The 15 remaining advisories (incl. high-severity DoS/SSRF and the

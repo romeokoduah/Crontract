@@ -38,6 +38,10 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
+  // Enables src/instrumentation.ts (env validation at boot) on Next 14.
+  experimental: {
+    instrumentationHook: true,
+  },
   async headers() {
     return [
       {

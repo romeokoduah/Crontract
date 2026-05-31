@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/signup",
   "/invite",
   "/api/auth",
+  "/api/health",
   "/_next",
   "/favicon.ico",
 ]
