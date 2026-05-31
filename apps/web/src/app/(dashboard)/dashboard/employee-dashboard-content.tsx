@@ -17,7 +17,7 @@ import {
   MapPin,
   ArrowRight,
 } from "lucide-react"
-import { formatDate, formatDateTime } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
 import Link from "next/link"
 
 interface EmployeeDashboardProps {

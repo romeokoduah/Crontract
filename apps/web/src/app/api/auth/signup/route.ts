@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { hashPassword } from "@/lib/auth"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -92,6 +93,9 @@ async function uniqueSlug(base: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = enforceRateLimit(req, "signup", { limit: 5, windowMs: 10 * 60 * 1000 })
+    if (limited) return limited
+
     const body = await req.json()
     const parsed = signupSchema.safeParse(body)
 

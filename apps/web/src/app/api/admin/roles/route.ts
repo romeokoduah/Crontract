@@ -2,12 +2,13 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requireAdminRole } from "@/lib/authorization"
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session)
+    if (denied) return denied
 
     // Fetch all roles for workspace with their permissions (optimized single query)
     const [roles, allPermissions] = await Promise.all([

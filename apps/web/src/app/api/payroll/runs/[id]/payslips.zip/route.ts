@@ -89,7 +89,7 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   const buf = await zip.generateAsync({ type: "nodebuffer" })
 
   const zipName = `payslips-${data.year}-${String(data.month).padStart(2, "0")}.zip`
-  return new NextResponse(buf as any, {
+  return new NextResponse(new Uint8Array(buf), {
     status: 200,
     headers: {
       "Content-Type": "application/zip",

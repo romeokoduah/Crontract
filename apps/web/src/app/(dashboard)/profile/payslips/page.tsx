@@ -43,7 +43,7 @@ export default async function MyPayslipsPage() {
 
       {!employee && (
         <div className="rounded-md border border-amber-200 bg-amber-50 text-amber-900 p-4 text-sm">
-          Your user account isn't linked to an employee record in this workspace, so no payslips are visible.
+          Your user account isn&apos;t linked to an employee record in this workspace, so no payslips are visible.
           Ask an administrator to link your account.
         </div>
       )}

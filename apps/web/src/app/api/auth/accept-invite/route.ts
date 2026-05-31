@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { hashPassword } from "@/lib/auth"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 const acceptInviteSchema = z.object({
   token: z.string().uuid(),
@@ -15,6 +16,9 @@ const acceptInviteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = enforceRateLimit(req, "accept-invite", { limit: 10, windowMs: 10 * 60 * 1000 })
+    if (limited) return limited
+
     const body = await req.json()
     const parsed = acceptInviteSchema.safeParse(body)
 

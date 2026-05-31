@@ -2,6 +2,11 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./db"
 import { compare, hash } from "bcryptjs"
+import { rateLimit } from "./rate-limit"
+
+// Brute-force protection: max failed-or-total login attempts per IP+email window.
+const LOGIN_MAX_ATTEMPTS = 10
+const LOGIN_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
 
 declare module "next-auth" {
   interface Session {
@@ -50,13 +55,27 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
 
+        const email = credentials.email.toLowerCase()
+
+        // Throttle login attempts per IP+email to blunt credential stuffing /
+        // brute force. Throws a generic error surfaced to the client as a 401.
+        const xff = (req?.headers?.["x-forwarded-for"] as string | undefined) ?? ""
+        const ip = xff.split(",")[0]?.trim() || "unknown"
+        const limit = rateLimit(`login:${ip}:${email}`, {
+          limit: LOGIN_MAX_ATTEMPTS,
+          windowMs: LOGIN_WINDOW_MS,
+        })
+        if (!limit.ok) {
+          throw new Error("RATE_LIMITED")
+        }
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
+          where: { email },
         })
 
         if (!user || !user.passwordHash) {

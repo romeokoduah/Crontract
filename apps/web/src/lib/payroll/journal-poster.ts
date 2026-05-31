@@ -1,6 +1,5 @@
 import { Prisma, PayrollGlLineType } from "@prisma/client"
 
-type Direction = "DR" | "CR"
 type Line = { accountId: string; debit: number; credit: number; memo: string }
 
 const REQUIRED: PayrollGlLineType[] = [

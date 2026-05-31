@@ -74,6 +74,18 @@ export async function PATCH(
     const userId = session!.user.id
     const data = parsed.data
 
+    // Prevent cross-tenant folder references: a supplied folderId must belong to
+    // the caller's workspace.
+    if (data.folderId) {
+      const folder = await prisma.folder.findFirst({
+        where: { id: data.folderId, workspaceId },
+        select: { id: true },
+      })
+      if (!folder) {
+        return NextResponse.json({ error: "Folder not found" }, { status: 400 })
+      }
+    }
+
     // Bump version on content change
     const versionBump = data.content !== undefined && data.content !== existing.content ? 1 : 0
 

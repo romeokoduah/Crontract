@@ -75,7 +75,7 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   })
 
   const filename = `payslip-${payslip.employee.employeeNumber}-${payslip.payrollRun.year}-${String(payslip.payrollRun.month).padStart(2, "0")}.pdf`
-  return new NextResponse(buf as any, {
+  return new NextResponse(new Uint8Array(buf), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",

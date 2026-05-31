@@ -103,7 +103,7 @@ export default async function PayrollPage() {
             </thead>
             <tbody>
               {runs.length === 0 && (
-                <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No payroll runs yet. Click "New Run" to start.</td></tr>
+                <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No payroll runs yet. Click &ldquo;New Run&rdquo; to start.</td></tr>
               )}
               {runs.map(r => (
                 <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">

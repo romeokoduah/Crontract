@@ -165,7 +165,6 @@ export function TaxSettingsClient({ defaultYear }: { defaultYear: number }) {
             </thead>
             <tbody>
               {brackets.map((b, i) => {
-                const patch = dirty[b.id] ?? {}
                 const isDirty = !!dirty[b.id]
                 return (
                   <tr key={b.id} className="border-t">

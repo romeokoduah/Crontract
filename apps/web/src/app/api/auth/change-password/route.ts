@@ -4,6 +4,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions, hashPassword } from "@/lib/auth"
 import { compare } from "bcryptjs"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
@@ -22,6 +23,14 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
     }
+
+    const limited = enforceRateLimit(
+      req,
+      "change-password",
+      { limit: 5, windowMs: 5 * 60 * 1000 },
+      session.user.id
+    )
+    if (limited) return limited
 
     const body = await req.json()
     const parsed = changePasswordSchema.safeParse(body)
