@@ -6,6 +6,7 @@
  * added later behind confirmation + the approvals engine. Handlers live here (not
  * in @/lib/ai) so tenant isolation stays with the data access.
  */
+import type { InvoiceStatus, BillStatus } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { type AgentTool } from "./types"
 
@@ -21,8 +22,8 @@ function daysBetween(from: Date, to: Date): number {
 }
 
 /** Statuses that represent money still owed (AR/AP). */
-const OPEN_INVOICE = ["SENT", "OVERDUE"] as const
-const OPEN_BILL = ["RECEIVED", "APPROVED"] as const
+const OPEN_INVOICE: InvoiceStatus[] = ["SENT", "OVERDUE"]
+const OPEN_BILL: BillStatus[] = ["RECEIVED", "APPROVED"]
 
 export function buildFinanceTools(workspaceId: string): AgentTool[] {
   return [
@@ -145,7 +146,7 @@ export function buildFinanceTools(workspaceId: string): AgentTool[] {
       execute: async () => {
         const today = new Date()
         const invoices = await prisma.invoice.findMany({
-          where: { workspaceId, status: { in: OPEN_INVOICE as unknown as string[] } },
+          where: { workspaceId, status: { in: OPEN_INVOICE } },
           select: { total: true, dueDate: true, currency: true },
         })
         const buckets = { current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 }
@@ -180,11 +181,11 @@ export function buildFinanceTools(workspaceId: string): AgentTool[] {
         const today = new Date()
         const [openInvoices, openBills] = await Promise.all([
           prisma.invoice.findMany({
-            where: { workspaceId, status: { in: OPEN_INVOICE as unknown as string[] } },
+            where: { workspaceId, status: { in: OPEN_INVOICE } },
             select: { total: true, dueDate: true },
           }),
           prisma.bill.findMany({
-            where: { workspaceId, status: { in: OPEN_BILL as unknown as string[] } },
+            where: { workspaceId, status: { in: OPEN_BILL } },
             select: { total: true, dueDate: true },
           }),
         ])
