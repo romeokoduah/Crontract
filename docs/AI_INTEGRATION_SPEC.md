@@ -5,6 +5,17 @@ Grounded in the current stack: **Next.js 14 (App Router) + Prisma 5 + PostgreSQL
 NextAuth (JWT) + pnpm monorepo**, multi-tenant with `workspace_id` on every row and an
 audit log on every mutation.
 
+> **Implementation status (Phase 0 shipped).** The Copilot foundation described
+> below is implemented in `apps/web/src/lib/ai/` (model router, agentic runtime,
+> guardrails, Anthropic provider, workspace-scoped Finance read-tools, and the
+> orchestration service with per-tenant tier + monthly-budget guardrails and
+> usage metering). API: `POST /api/ai/copilot`, `GET /api/ai/conversations`.
+> UI: a ⌘K Copilot panel mounted app-wide. Schema: `AiConversation`, `AiMessage`,
+> `AiInteraction`, `WorkspaceAiSettings`, plus an `actor` column on `AuditLog`.
+> It is kept inside the web app for now (no extra build-graph wiring); extract to
+> a `packages/ai` workspace package when a second app needs it. Everything else
+> below (RAG/pgvector, text-to-SQL, write-actions, OCR/ASR) remains to be built.
+
 Guiding principles:
 1. **Tenant isolation is sacred.** No AI feature may ever cross `workspace_id`. Every
    retrieval, embedding, and tool call is scoped and re-checked against the session's

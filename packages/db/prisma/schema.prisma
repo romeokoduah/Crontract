@@ -33,6 +33,8 @@ model User {
   sessions       Session[]
   accounts       Account[]
   verificationTokens VerificationToken[]
+  aiConversations AiConversation[]
+  aiInteractions  AiInteraction[]
 
   @@map("users")
 }
@@ -167,6 +169,11 @@ model Workspace {
   socialAccounts SocialAccount[]
   socialPosts    SocialPost[]
 
+  // AI
+  aiConversations AiConversation[]
+  aiInteractions  AiInteraction[]
+  aiSettings      WorkspaceAiSettings?
+
   @@map("workspaces")
 }
 
@@ -271,6 +278,7 @@ model AuditLog {
   entityType  String   @map("entity_type")
   entityId    String   @map("entity_id") @db.Uuid
   action      String
+  actor       String   @default("human") // human | ai — distinguishes agent-initiated changes
   beforeState Json?    @map("before_state")
   afterState  Json?    @map("after_state")
   ipAddress   String?  @map("ip_address")
@@ -1816,4 +1824,78 @@ enum SocialPostPlatformStatus {
   PENDING
   PUBLISHED
   FAILED
+}
+
+// ============================================================
+// AI: Copilot, Metering & Governance
+// See docs/AI_INTEGRATION_SPEC.md
+// ============================================================
+
+model AiConversation {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  title       String   @default("New conversation")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id])
+  messages  AiMessage[]
+
+  @@index([workspaceId, userId, updatedAt])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  workspaceId    String   @map("workspace_id") @db.Uuid
+  role           String // user | assistant
+  content        String   @db.Text
+  toolTrace      Json?    @map("tool_trace")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+// One row per model call — powers usage metering, billing tiers, cost dashboards and evals.
+model AiInteraction {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  feature      String // 'copilot.chat', 'finance.invoice_ocr', ...
+  provider     String
+  model        String
+  inputTokens  Int      @default(0) @map("input_tokens")
+  outputTokens Int      @default(0) @map("output_tokens")
+  costUsd      Decimal  @default(0) @map("cost_usd") @db.Decimal(12, 6)
+  latencyMs    Int      @default(0) @map("latency_ms")
+  status       String   @default("ok") // ok | error | blocked_guardrail | quota_exceeded
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId, feature, createdAt])
+  @@map("ai_interactions")
+}
+
+// Per-tenant AI governance + billing tier.
+model WorkspaceAiSettings {
+  id               String   @id @default(uuid()) @db.Uuid
+  workspaceId      String   @unique @map("workspace_id") @db.Uuid
+  tier             String   @default("standard") // off | standard | intelligence
+  trainingOptOut   Boolean  @default(true) @map("training_opt_out")
+  monthlyBudgetUsd Decimal  @default(50) @map("monthly_budget_usd") @db.Decimal(12, 2)
+  enabledFeatures  Json?    @map("enabled_features")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_ai_settings")
 }

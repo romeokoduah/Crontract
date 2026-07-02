@@ -42,6 +42,18 @@ Build compiles, all module pages render, seed data loads, auth works end-to-end.
 - [x] Assets — register with stats, create form, categories
 - [x] HSE — **dashboard with KPIs**, incidents (report/investigate/close with corrective actions), permits to work (6 types), risk assessments, toolbox talks, safety training with expiry alerts
 
+### AI — Crontract Copilot (Phase 0)
+- [x] Provider-agnostic **model router** with task tiers + cost estimation (`apps/web/src/lib/ai/router.ts`)
+- [x] **Anthropic provider** over the Messages API with tool-use (`providers/anthropic.ts`)
+- [x] **Agentic runtime** — multi-step tool-calling loop with iteration cap (`runtime.ts`)
+- [x] **Guardrails** — tool-result sanitisation + prompt-injection hardening note (`guardrails.ts`)
+- [x] **Workspace-scoped Finance read-tools** — invoices, bills, expenses, AR ageing, cash position, chart of accounts (`finance-tools.ts`)
+- [x] **Copilot service** — per-tenant AI tier + monthly-budget guardrails, conversation persistence, usage metering (`copilot-service.ts`)
+- [x] API: `POST /api/ai/copilot`, `GET /api/ai/conversations`
+- [x] **⌘K Copilot chat panel** mounted app-wide (`components/ai/copilot-panel.tsx`)
+- [x] Schema: `AiConversation`, `AiMessage`, `AiInteraction`, `WorkspaceAiSettings`; `actor` on `AuditLog`
+- [ ] Next: RAG/pgvector, text-to-SQL reporting, write-actions behind approvals, OCR/ASR extractors
+
 ### Segment Stubs (Tier 3)
 - [x] Grants & M&E — Coming Soon page
 - [x] CRM — Coming Soon page

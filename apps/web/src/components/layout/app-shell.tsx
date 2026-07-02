@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useSession } from "next-auth/react"
 import { Sidebar } from "./sidebar"
 import { Topbar } from "./topbar"
+import { CopilotPanel } from "@/components/ai/copilot-panel"
 import { cn } from "@/lib/utils"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Topbar />
         <main className="p-6">{children}</main>
       </div>
+      <CopilotPanel />
     </div>
   )
 }
