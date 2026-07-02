@@ -54,6 +54,16 @@ Build compiles, all module pages render, seed data loads, auth works end-to-end.
 - [x] Schema: `AiConversation`, `AiMessage`, `AiInteraction`, `WorkspaceAiSettings`; `actor` on `AuditLog`
 - [ ] Next: RAG/pgvector, text-to-SQL reporting, write-actions behind approvals, OCR/ASR extractors
 
+### Novelty — Working-Capital Creditworthiness Engine
+- [x] **Deterministic scoring model** (`lib/credit/scoring.ts`) — 7 weighted factors → 0–100 score, grade A–E, confidence, reason codes, indicative facility. Pure/auditable/testable.
+- [x] **Signal gathering** from operational data (`lib/credit/signals.ts`) — receivables ageing, collections, concentration, payables discipline, maturity, reliability, HSE risk
+- [x] **Engine + AI memo** (`lib/credit/engine.ts`) — AI narrates the memo but never changes a number; deterministic template fallback + usage metering
+- [x] **Financing Readiness page** (`/finance/capital`) — score, indicative facility, factor breakdown, one-click underwriting memo
+- [x] API: `GET /api/finance/credit`, `POST /api/finance/credit/memo` (admin-gated)
+- [x] Copilot tool `assess_financing_readiness` — "are we ready for financing?" answered from the deterministic engine
+- [x] Verified: smoke-tested (strong→95/A/eligible, weak→13/E/ineligible), typecheck + lint + build pass
+- [ ] Next: turn the indicative facility into a real invoice-financing product with a lending partner; instrument realised loss rates (see docs/NOVELTY_CREDIT_ENGINE.md)
+
 ### Segment Stubs (Tier 3)
 - [x] Grants & M&E — Coming Soon page
 - [x] CRM — Coming Soon page

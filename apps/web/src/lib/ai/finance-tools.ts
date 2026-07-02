@@ -8,6 +8,7 @@
  */
 import type { InvoiceStatus, BillStatus } from "@prisma/client"
 import { prisma } from "@/lib/db"
+import { assessWorkspaceCredit } from "@/lib/credit"
 import { type AgentTool } from "./types"
 
 function num(v: unknown): number {
@@ -225,6 +226,31 @@ export function buildFinanceTools(workspaceId: string): AgentTool[] {
           select: { code: true, name: true, type: true, isActive: true },
         })
         return rows.map((r) => ({ code: r.code, name: r.name, type: r.type, active: r.isActive }))
+      },
+    },
+    {
+      name: "assess_financing_readiness",
+      description:
+        "Compute the workspace's working-capital creditworthiness (the Crontract Score) from its " +
+        "operational data: overall score, grade, confidence, an indicative facility limit, and the " +
+        "factors driving it. Use for questions about financing, loans, working capital, or 'how " +
+        "creditworthy are we'. The score is deterministic — report it exactly, do not re-estimate.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async () => {
+        const a = await assessWorkspaceCredit(workspaceId)
+        return {
+          score: a.score,
+          grade: a.grade,
+          confidence: a.confidence,
+          currency: a.currency,
+          indicativeFacility: a.offer.eligible ? a.offer.limit : 0,
+          eligible: a.offer.eligible,
+          advanceRatePct: a.offer.advanceRatePct,
+          offerBasis: a.offer.basis,
+          factors: a.factors.map((f) => ({ factor: f.label, score: Math.round(f.score), status: f.polarity })),
+          topReasonCodes: a.reasonCodes,
+          disclaimer: a.disclaimer,
+        }
       },
     },
   ]
