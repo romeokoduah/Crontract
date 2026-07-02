@@ -139,6 +139,35 @@ Key variables:
 - `NEXTAUTH_SECRET` — JWT signing secret
 - `NEXTAUTH_URL` — App URL (e.g. `http://localhost:3000`)
 
+## AI — Crontract Copilot
+
+A ⌘K, workspace-aware AI assistant that reads your finance data through typed,
+tenant-scoped tools and answers in plain language (it never invents figures). It's
+the first slice of the AI layer in `docs/AI_INTEGRATION_SPEC.md`.
+
+To enable it:
+
+```bash
+# 1. Add an Anthropic key to apps/web/.env.local
+ANTHROPIC_API_KEY="sk-ant-..."
+
+# 2. Apply the new AI tables (AiConversation, AiMessage, AiInteraction, WorkspaceAiSettings)
+pnpm run db:push
+```
+
+Without a key the app runs normally and the Copilot returns a "not configured"
+message. Per-workspace AI tier and a monthly USD budget are enforced server-side
+and every call is metered in `ai_interactions`.
+
+## Strategy & Scaling
+
+- [`docs/VISION_SCALE.md`](docs/VISION_SCALE.md) — 10-round scaling thesis: wedge focus,
+  the System of Record → Intelligence → Money ladder, AI integrations per module, moat,
+  monetization, GTM, and the 18-month path toward a $100M-scale raise.
+- [`docs/AI_INTEGRATION_SPEC.md`](docs/AI_INTEGRATION_SPEC.md) — concrete AI architecture:
+  model router, the typed action registry, tenant-scoped RAG, text-to-SQL, guardrails,
+  eval harness, and Prisma schema additions.
+
 ## License
 
 Proprietary. All rights reserved.

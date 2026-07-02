@@ -77,6 +77,7 @@ export const mainNavItems: NavItem[] = [
       { title: "Expenses", href: "/finance/expenses", icon: DollarSign },
       { title: "Chart of Accounts", href: "/finance/accounts", icon: DollarSign },
       { title: "Journals", href: "/finance/journals", icon: DollarSign },
+      { title: "Financing Readiness", href: "/finance/capital", icon: DollarSign },
     ],
   },
   {
