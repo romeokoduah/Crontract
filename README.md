@@ -139,6 +139,15 @@ Key variables:
 - `NEXTAUTH_SECRET` — JWT signing secret
 - `NEXTAUTH_URL` — App URL (e.g. `http://localhost:3000`)
 
+## Strategy & Scaling
+
+- [`docs/VISION_SCALE.md`](docs/VISION_SCALE.md) — 10-round scaling thesis: wedge focus,
+  the System of Record → Intelligence → Money ladder, AI integrations per module, moat,
+  monetization, GTM, and the 18-month path toward a $100M-scale raise.
+- [`docs/AI_INTEGRATION_SPEC.md`](docs/AI_INTEGRATION_SPEC.md) — concrete AI architecture:
+  model router, the typed action registry, tenant-scoped RAG, text-to-SQL, guardrails,
+  eval harness, and Prisma schema additions.
+
 ## License
 
 Proprietary. All rights reserved.
