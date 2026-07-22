@@ -18,3 +18,7 @@ apps/web/.env.local
 
 # Claude Code local settings
 .claude/
+
+# Superpowers SDD scratch (briefs, reports, progress ledger)
+.superpowers/
+.app-screenshot.png
