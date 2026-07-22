@@ -18,6 +18,7 @@ declare module "next-auth" {
       workspaceId?: string
       workspaceName?: string
       role?: string
+      roleId?: string
       mustChangePassword?: boolean
     }
   }
@@ -35,6 +36,7 @@ declare module "next-auth/jwt" {
     workspaceId?: string
     workspaceName?: string
     role?: string
+    roleId?: string
     mustChangePassword?: boolean
   }
 }
@@ -116,7 +118,7 @@ export const authOptions: NextAuthOptions = {
           where: { userId: user.id },
           include: {
             workspace: { select: { id: true, name: true } },
-            role: { select: { name: true } },
+            role: { select: { id: true, name: true } },
           },
           orderBy: { createdAt: "asc" },
         })
@@ -125,6 +127,7 @@ export const authOptions: NextAuthOptions = {
           token.workspaceId = membership.workspace.id
           token.workspaceName = membership.workspace.name
           token.role = membership.role.name
+          token.roleId = membership.role.id
         }
       }
 
@@ -137,7 +140,7 @@ export const authOptions: NextAuthOptions = {
           },
           include: {
             workspace: { select: { id: true, name: true } },
-            role: { select: { name: true } },
+            role: { select: { id: true, name: true } },
           },
         })
 
@@ -145,6 +148,7 @@ export const authOptions: NextAuthOptions = {
           token.workspaceId = membership.workspace.id
           token.workspaceName = membership.workspace.name
           token.role = membership.role.name
+          token.roleId = membership.role.id
         }
       }
 
@@ -160,6 +164,7 @@ export const authOptions: NextAuthOptions = {
       session.user.workspaceId = token.workspaceId
       session.user.workspaceName = token.workspaceName
       session.user.role = token.role
+      session.user.roleId = token.roleId
       session.user.mustChangePassword = token.mustChangePassword
       return session
     },

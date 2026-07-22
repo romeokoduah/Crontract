@@ -16,6 +16,7 @@ export type SessionUser = {
   workspaceId?: string
   workspaceName?: string
   role?: string
+  roleId?: string
   mustChangePassword?: boolean
 }
 
