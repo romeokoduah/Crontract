@@ -23,7 +23,7 @@ describe("permission catalogue", () => {
     expect(p!.scopes).toEqual(["OWN"])
   })
 
-  it("covers all 23 modules", () => {
+  it("covers every catalogued module", () => {
     const modules = new Set(CATALOGUE.map((p) => moduleOf(p.code)))
     for (const m of [
       "admin","approvals","assets","budget","compliance","crm","dashboard",
