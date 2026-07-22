@@ -144,16 +144,19 @@ The seed upserts these idempotently (safe to re-run). Existing payroll codes are
 
 ### Default role → grant mapping (backfill source of truth)
 
-Derived from **today's** behaviour so no one loses access:
+Derived from **today's** behaviour so no one loses access. The four system
+roles already seeded are **Owner, Administrator, Manager, Employee** (per
+`packages/db/src/seed.ts`) — no new roles are introduced:
 
 | Role | Grants |
 |---|---|
 | Owner / Administrator | every code @ `ALL` |
-| Manager *(new default role, seeded)* | `view` @ `ALL`; `create` / `update` @ `TEAM` on operational modules (projects, tasks, procurement, assets, hse, crm, meetings, documents) |
-| Member | `view` @ `TEAM`; `update` @ `OWN`; `payroll:payslip:view_own` |
-| Viewer | `view` @ `TEAM`/`OWN` only |
+| Manager | `view` @ `ALL`; `create` / `update` @ `TEAM` on operational modules (projects, tasks, procurement, assets, hse, crm, meetings, documents) |
+| Employee | `view` @ `TEAM`; `update` @ `OWN`; `payroll:payslip:view_own` |
 
-Financial/HR modules (`payroll`, `finance`, `people` salary fields) are **not** granted to Member/Viewer at any scope beyond self-service — this is what closes the current exposure.
+Financial/HR modules (`payroll`, `finance`, `people` salary fields) are **not**
+granted to Employee at any scope beyond self-service — this is what closes the
+current exposure.
 
 ---
 
