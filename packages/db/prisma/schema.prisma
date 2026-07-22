@@ -33,6 +33,7 @@ model User {
   sessions       Session[]
   accounts       Account[]
   verificationTokens VerificationToken[]
+  projectMemberships ProjectMember[]
 
   @@map("users")
 }
@@ -231,10 +232,23 @@ model Permission {
   @@map("permissions")
 }
 
+enum PermissionScope {
+  ALL
+  TEAM
+  OWN
+}
+
+enum ProjectRole {
+  LEAD
+  MEMBER
+  VIEWER
+}
+
 model RolePermission {
   id           String @id @default(uuid()) @db.Uuid
   roleId       String @map("role_id") @db.Uuid
   permissionId String @map("permission_id") @db.Uuid
+  scope        PermissionScope @default(ALL) @map("scope")
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
@@ -524,6 +538,7 @@ model Project {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks     Task[]
   meetings  Meeting[]
+  members   ProjectMember[]
 
   @@map("projects")
 }
@@ -541,6 +556,20 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+model ProjectMember {
+  id        String      @id @default(uuid()) @db.Uuid
+  projectId String      @map("project_id") @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  role      ProjectRole @default(MEMBER)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
 }
 
 model Task {

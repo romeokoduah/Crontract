@@ -133,6 +133,12 @@ async function seedWorkspace(config: WorkspaceConfig, passwordHash: string) {
       },
     })
     projects.push(proj)
+
+    await prisma.projectMember.upsert({
+      where: { projectId_userId: { projectId: proj.id, userId: users[p.ownerIdx].id } },
+      update: { role: "LEAD" },
+      create: { projectId: proj.id, userId: users[p.ownerIdx].id, role: "LEAD" },
+    })
   }
 
   // Tasks
