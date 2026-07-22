@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from "vitest"
 import { backfillRoleGrants } from "../backfill"
 
+// Fake prisma that models the real rolePermission unique constraint
+// (@@unique([roleId, permissionId])) via a Map, so upsert genuinely
+// updates-in-place instead of duplicating — letting us test real idempotency.
 function fakePrisma() {
-  const rolePerms: any[] = []
+  const store = new Map<string, any>()
   return {
-    _rolePerms: rolePerms,
+    _store: store,
+    get _rolePerms() { return [...store.values()] },
     role: { findMany: vi.fn(async () => [{ id: "r1", name: "Employee" }]) },
     permission: { findMany: vi.fn(async () =>
       // minimal: the two codes the assertions below touch
@@ -13,7 +17,13 @@ function fakePrisma() {
         { id: "p2", code: "payroll:run:view" },
       ]) },
     rolePermission: {
-      upsert: vi.fn(async ({ create }: any) => { rolePerms.push(create); return create }),
+      upsert: vi.fn(async ({ where, create, update }: any) => {
+        const key = `${where.roleId_permissionId.roleId}:${where.roleId_permissionId.permissionId}`
+        const existing = store.get(key)
+        const row = existing ? { ...existing, ...update } : create
+        store.set(key, row)
+        return row
+      }),
     },
   } as any
 }
@@ -33,11 +43,23 @@ describe("backfillRoleGrants", () => {
     expect(p._rolePerms.find((x: any) => x.permissionId === "p2")).toBeUndefined()
   })
 
-  it("is idempotent-safe (only known codes upserted)", async () => {
+  it("is idempotent — a second run does not duplicate grants", async () => {
     const p = fakePrisma()
     await backfillRoleGrants(p, "w1")
     const first = p._rolePerms.length
+    expect(first).toBeGreaterThan(0)
     await backfillRoleGrants(p, "w1")
-    expect(p._rolePerms.length).toBe(first * 2) // upsert called again; create payload identical
+    // Real unique-constraint semantics: re-running updates in place, count unchanged.
+    expect(p._rolePerms.length).toBe(first)
+  })
+
+  it("re-run updates an existing grant's scope in place (upsert update path)", async () => {
+    const p = fakePrisma()
+    await backfillRoleGrants(p, "w1")
+    // Simulate a prior grant stored with a different scope, then re-backfill.
+    const key = "r1:p1"
+    p._store.set(key, { ...p._store.get(key), scope: "ALL" })
+    await backfillRoleGrants(p, "w1")
+    expect(p._store.get(key).scope).toBe("OWN") // restored to the default-grant scope
   })
 })
