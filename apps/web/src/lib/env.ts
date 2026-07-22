@@ -24,6 +24,7 @@ const serverEnvSchema = z
     REDIS_URL: z.string().optional(),
     S3_ENDPOINT: z.string().optional(),
     S3_BUCKET: z.string().optional(),
+    AUTHZ_ENFORCED: z.enum(["true", "false"]).optional(),
   })
   .superRefine((env, ctx) => {
     // In production, weak/short auth secrets are a real risk — require strength.
@@ -60,3 +61,6 @@ export function validateEnv(): ServerEnv {
   }
   return parsed.data
 }
+
+/** Master switch for permission enforcement. Off unless explicitly "true". */
+export const AUTHZ_ENFORCED = process.env.AUTHZ_ENFORCED === "true"
