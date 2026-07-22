@@ -58,6 +58,11 @@ describe("can()", () => {
     expect(await can(USER, "projects:task:update", { ownerIds: ["u1"] })).toBe(true)
   })
 
+  it("TEAM grant denies when neither projectId nor matching ownerIds", async () => {
+    grantsWith({ "projects:task:update": "TEAM" })
+    expect(await can(USER, "projects:task:update", { ownerIds: ["someone-else"] })).toBe(false)
+  })
+
   it("no-resource check passes when the code is held at any scope", async () => {
     grantsWith({ "projects:task:create": "TEAM" })
     expect(await can(USER, "projects:task:create")).toBe(true)
