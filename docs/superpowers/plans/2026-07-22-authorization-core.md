@@ -356,11 +356,38 @@ export function moduleOf(code: string): string {
 Run: `pnpm --filter @crontract/db exec vitest run src/permissions/__tests__/catalogue.test.ts`
 Expected: PASS, 5 tests. If the "covers all 23 modules" test fails, add the missing module's codes (do not weaken the test).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Make the catalogue importable from the web app**
+
+The web app (`apps/web`) has NO dependency on `@crontract/db` today — it runs its own `PrismaClient`. Two later web **test** files (Tasks 10, 12) need to import the catalogue. `catalogue.ts` is pure data (no `@prisma/client` import), so exposing it is safe. Do both:
+
+1. In `packages/db/package.json`, extend `exports` with a subpath:
+
+```json
+  "exports": {
+    ".": "./src/index.ts",
+    "./permissions/catalogue": "./src/permissions/catalogue.ts"
+  }
+```
+
+2. In `apps/web/package.json`, add to `devDependencies`:
+
+```json
+    "@crontract/db": "workspace:*"
+```
+
+Then run: `pnpm install`
+Expected: lockfile updates, `apps/web/node_modules/@crontract/db` symlink created. This lets vitest/tsc resolve `@crontract/db/permissions/catalogue`. No `next.config` / `transpilePackages` change — runtime web code never imports it, only tests do.
+
+- [ ] **Step 6: Verify resolution**
+
+Run: `pnpm --filter web exec tsc --noEmit`
+Expected: exit 0 (no unresolved-module errors introduced).
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add packages/db/src/permissions/catalogue.ts packages/db/src/permissions/__tests__/catalogue.test.ts
-git commit -m "feat(authz): typed permission catalogue for all modules"
+git add packages/db/src/permissions/catalogue.ts packages/db/src/permissions/__tests__/catalogue.test.ts packages/db/package.json apps/web/package.json pnpm-lock.yaml
+git commit -m "feat(authz): typed permission catalogue for all modules + web import path"
 ```
 
 ---
@@ -1239,7 +1266,7 @@ describe("MODULE_VIEW_PERMISSION", () => {
 })
 ```
 
-(If `@crontract/db` subpath import isn't configured, import the catalogue via a relative path or re-export; resolve during implementation.)
+The `@crontract/db/permissions/catalogue` subpath export and the `apps/web` devDependency were set up in Task 2 Step 5, so this import resolves.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1416,7 +1443,7 @@ git commit -m "feat(authz): matrix persists scope and invalidates role cache"
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
 import { globSync } from "glob"
-import { CATALOGUE_BY_CODE } from "@crontract/db/permissions/catalogue" // resolve import path in impl
+import { CATALOGUE_BY_CODE } from "@crontract/db/permissions/catalogue" // subpath export added in Task 2 Step 5
 
 const routeFiles = globSync("src/app/api/**/route.ts", { cwd: process.cwd() })
 
