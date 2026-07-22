@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 })
     }
 
-    // Update each platform entry
+    // NOTE: This is a SIMULATED publish. No real social-network API is called; we mark the
+    // post published locally with a synthetic id/URL so the demo flow works end to end.
+    // Wiring real OAuth + platform APIs is tracked in ROADMAP (CRM/Communications phase).
     for (const platform of post.platforms) {
       const platformPostId = randomUUID()
       await prisma.socialPostPlatform.update({
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ post: updatedPost })
+    return NextResponse.json({ post: updatedPost, simulated: true })
   } catch (err) {
     console.error("[POST /api/social-media/posts/publish]", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

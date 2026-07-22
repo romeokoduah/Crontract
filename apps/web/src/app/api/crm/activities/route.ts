@@ -57,6 +57,16 @@ export async function POST(req: NextRequest) {
     const workspaceId = session!.user.workspaceId!
     const userId = session!.user.id
 
+    // Verify any referenced records belong to this workspace (no cross-tenant FK association).
+    if (data.contactId) {
+      const contact = await prisma.crmContact.findFirst({ where: { id: data.contactId, workspaceId }, select: { id: true } })
+      if (!contact) return NextResponse.json({ error: "Contact not found" }, { status: 400 })
+    }
+    if (data.dealId) {
+      const deal = await prisma.crmDeal.findFirst({ where: { id: data.dealId, workspaceId }, select: { id: true } })
+      if (!deal) return NextResponse.json({ error: "Deal not found" }, { status: 400 })
+    }
+
     const activity = await prisma.crmActivity.create({
       data: {
         workspaceId,

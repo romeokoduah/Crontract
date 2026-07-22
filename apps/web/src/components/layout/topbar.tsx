@@ -29,10 +29,13 @@ export function Topbar() {
       <div className="flex items-center gap-4 flex-1 max-w-xl">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          {/* Global search backend is not wired yet — disabled so the field isn't misleading. */}
           <input
             type="text"
-            placeholder="Search anything... (⌘K)"
-            className="h-9 w-full rounded-md border bg-muted/50 pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+            disabled
+            title="Global search is coming soon"
+            placeholder="Search (coming soon)"
+            className="h-9 w-full cursor-not-allowed rounded-md border bg-muted/50 pl-9 pr-4 text-sm text-muted-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
         </div>
       </div>

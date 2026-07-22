@@ -121,6 +121,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Employee number already in use" }, { status: 409 })
     }
 
+    // Verify referenced department/manager belong to this workspace (no cross-tenant FK).
+    if (data.departmentId) {
+      const department = await prisma.department.findFirst({ where: { id: data.departmentId, workspaceId }, select: { id: true } })
+      if (!department) return NextResponse.json({ error: "Department not found" }, { status: 400 })
+    }
+    if (data.managerId) {
+      const manager = await prisma.employee.findFirst({ where: { id: data.managerId, workspaceId }, select: { id: true } })
+      if (!manager) return NextResponse.json({ error: "Manager not found" }, { status: 400 })
+    }
+
     const employee = await prisma.employee.create({
       data: {
         workspaceId,

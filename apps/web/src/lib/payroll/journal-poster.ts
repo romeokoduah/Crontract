@@ -40,6 +40,17 @@ export async function buildPayrollJournalLines(
   const tier2Payable = round2(payslips.reduce((s, p) => s + Number(p.tier2), 0))
   const loanCr = round2(payslips.reduce((s, p) => s + Number(p.loanDeductions), 0))
   const netClearing = round2(payslips.reduce((s, p) => s + Number(p.netPay), 0))
+  // Non-statutory voluntary deductions (union dues, salary advances, etc.). These reduce
+  // net pay, so they must be credited to a payable or the journal won't balance.
+  const otherDeductions = round2(payslips.reduce((s, p) => s + Number(p.otherDeductions ?? 0), 0))
+
+  // OTHER_DEDUCTIONS_PAYABLE is an optional 9th mapping: only required when a run actually
+  // carries deduction components, so existing 8-line workspaces are unaffected.
+  if (otherDeductions > 0 && !map.has("OTHER_DEDUCTIONS_PAYABLE")) {
+    throw new Error(
+      "Missing GL mapping for: OTHER_DEDUCTIONS_PAYABLE. This run includes voluntary deductions; configure it at /payroll/gl-mapping.",
+    )
+  }
 
   const dr = (lineType: PayrollGlLineType, amount: number, memo: string): Line =>
     ({ accountId: map.get(lineType)!, debit: amount, credit: 0, memo })
@@ -54,6 +65,7 @@ export async function buildPayrollJournalLines(
     cr("PAYE_PAYABLE",           payePayable,  "PAYE withheld"),
     cr("TIER2_PAYABLE",          tier2Payable, "Tier 2"),
     cr("LOAN_RECEIVABLE",        loanCr,       "Loan repayments"),
+    ...(otherDeductions > 0 ? [cr("OTHER_DEDUCTIONS_PAYABLE", otherDeductions, "Voluntary deductions")] : []),
     cr("NET_PAY_CLEARING",       netClearing,  "Net pay to disburse"),
   ].filter(l => l.debit > 0 || l.credit > 0)
 

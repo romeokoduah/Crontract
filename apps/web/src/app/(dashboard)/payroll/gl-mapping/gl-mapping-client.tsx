@@ -15,6 +15,11 @@ type LineType =
   | "TIER2_PAYABLE"
   | "LOAN_RECEIVABLE"
   | "NET_PAY_CLEARING"
+  | "OTHER_DEDUCTIONS_PAYABLE"
+
+// The 8 statutory/core lines every run posts. OTHER_DEDUCTIONS_PAYABLE is optional.
+const CORE_LINE_COUNT = 8
+const OPTIONAL_LINE: LineType = "OTHER_DEDUCTIONS_PAYABLE"
 
 type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE"
 
@@ -31,6 +36,7 @@ const LABELS: Record<LineType, string> = {
   TIER2_PAYABLE: "Tier 2 Payable (Cr)",
   LOAN_RECEIVABLE: "Staff Loans Receivable (Cr)",
   NET_PAY_CLEARING: "Net Pay Clearing (Cr)",
+  OTHER_DEDUCTIONS_PAYABLE: "Other Deductions Payable (Cr) — optional",
 }
 
 const TYPE_FILTER: Record<LineType, AccountType[]> = {
@@ -42,6 +48,7 @@ const TYPE_FILTER: Record<LineType, AccountType[]> = {
   TIER2_PAYABLE: ["LIABILITY"],
   LOAN_RECEIVABLE: ["ASSET"],
   NET_PAY_CLEARING: ["LIABILITY", "ASSET"],
+  OTHER_DEDUCTIONS_PAYABLE: ["LIABILITY"],
 }
 
 type Choice =
@@ -70,7 +77,11 @@ export function GlMappingClient() {
           const existing = (d.mappings as Mapping[]).find(m => m.lineType === def.lineType)
           init[def.lineType] = existing
             ? { mode: "existing", accountId: existing.accountId }
-            : { mode: "create" }
+            // The optional line defaults to "Not used" so workspaces without voluntary
+            // deductions aren't forced to create an account they don't need.
+            : def.lineType === OPTIONAL_LINE
+              ? { mode: "unset" }
+              : { mode: "create" }
         }
         setChoices(init)
         setLoading(false)
@@ -88,15 +99,14 @@ export function GlMappingClient() {
   async function apply() {
     setSaving(true)
     try {
-      const mappings = defaults.map(def => {
-        const c = choices[def.lineType]
-        if (!c || c.mode === "unset") {
-          throw new Error(`No choice for ${def.lineType}`)
-        }
+      type ApplyMapping = { lineType: LineType; create?: boolean; accountId?: string }
+      const mappings = defaults.flatMap((def): ApplyMapping[] => {
+        const c = choices[def.lineType] ?? { mode: "create" as const }
+        if (c.mode === "unset") return []   // optional line left unmapped
         if (c.mode === "create") {
-          return { lineType: def.lineType, create: true }
+          return [{ lineType: def.lineType, create: true }]
         }
-        return { lineType: def.lineType, accountId: c.accountId }
+        return [{ lineType: def.lineType, accountId: c.accountId }]
       })
       const res = await fetch("/api/payroll/gl-mapping", {
         method: "POST",
@@ -125,7 +135,8 @@ export function GlMappingClient() {
     )
   }
 
-  const allMapped = currentMappings.length === 8
+  const coreMapped = currentMappings.filter(m => m.lineType !== OPTIONAL_LINE).length
+  const allMapped = coreMapped >= CORE_LINE_COUNT
 
   return (
     <div className="space-y-4">
@@ -133,8 +144,8 @@ export function GlMappingClient() {
         {allMapped ? <Check className="h-4 w-4 mt-0.5" /> : <AlertCircle className="h-4 w-4 mt-0.5" />}
         <div>
           {allMapped
-            ? "All 8 payroll lines are mapped. Payroll runs can be posted."
-            : `Mapped ${currentMappings.length}/8 lines — payroll runs cannot be posted until all 8 are set.`}
+            ? `All ${CORE_LINE_COUNT} core payroll lines are mapped. Payroll runs can be posted.`
+            : `Mapped ${coreMapped}/${CORE_LINE_COUNT} core lines — payroll runs cannot be posted until all ${CORE_LINE_COUNT} are set.`}
         </div>
       </div>
 
@@ -171,6 +182,16 @@ export function GlMappingClient() {
                     />
                     <span>Map to existing</span>
                   </label>
+                  {def.lineType === OPTIONAL_LINE && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={choice.mode === "unset"}
+                        onChange={() => setChoice(def.lineType, { mode: "unset" })}
+                      />
+                      <span>Not used</span>
+                    </label>
+                  )}
                 </div>
                 {choice.mode === "existing" && (
                   <select

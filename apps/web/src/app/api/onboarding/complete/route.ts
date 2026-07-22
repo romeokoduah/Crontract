@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { sendInvitationEmail } from "@/lib/email"
 
 // ─── Schema ────────────────────────────────────────────────────────────────────
 
@@ -239,6 +240,28 @@ export async function POST(req: NextRequest) {
         }
       }
     })
+
+    // Notify invitees (best-effort, post-commit — never blocks or fails the request).
+    if (invites.length > 0) {
+      const invitedEmails = invites.map((i) => i.email.toLowerCase())
+      const created = await prisma.invitation.findMany({
+        where: { workspaceId, email: { in: invitedEmails } },
+        select: { email: true, token: true },
+      })
+      const base = process.env.NEXTAUTH_URL ?? "http://localhost:3000"
+      const inviterName = session!.user.name ?? session!.user.email ?? "A teammate"
+      const workspaceName = tradingName ?? legalName
+      await Promise.all(
+        created.map((inv) =>
+          sendInvitationEmail({
+            to: inv.email,
+            inviterName,
+            workspaceName,
+            acceptUrl: `${base}/accept-invite?token=${inv.token}`,
+          }).catch((err) => console.error("[onboarding] invite email failed", err)),
+        ),
+      )
+    }
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (err) {

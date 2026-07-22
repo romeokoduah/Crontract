@@ -30,7 +30,7 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>
 
-export function LoginForm() {
+export function LoginForm({ showDemoLogin = false }: { showDemoLogin?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard"
@@ -185,12 +185,7 @@ export function LoginForm() {
               <FormItem>
                 <div className="flex items-center justify-between">
                   <FormLabel>Password</FormLabel>
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline transition-colors"
-                  >
-                    Forgot password?
-                  </Link>
+                  {/* Self-service password reset pending email integration; admins reset via People > Reset Password */}
                 </div>
                 <FormControl>
                   <div className="relative">
@@ -228,26 +223,28 @@ export function LoginForm() {
         </form>
       </Form>
 
-      {/* Demo workspaces */}
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={() => setShowDemo(!showDemo)}
-          className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-        >
-          <span className="flex-1 h-px bg-border" />
-          <span className="font-medium group-hover:text-primary transition-colors">
-            {showDemo ? "Hide demo workspaces" : "Explore with a demo workspace"}
-          </span>
-          <span className="flex-1 h-px bg-border" />
-        </button>
+      {/* Demo workspaces — only rendered outside production (credentials are hardcoded) */}
+      {showDemoLogin && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => setShowDemo(!showDemo)}
+            className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+          >
+            <span className="flex-1 h-px bg-border" />
+            <span className="font-medium group-hover:text-primary transition-colors">
+              {showDemo ? "Hide demo workspaces" : "Explore with a demo workspace"}
+            </span>
+            <span className="flex-1 h-px bg-border" />
+          </button>
 
-        {showDemo && (
-          <div className="mt-4">
-            <DemoLogin />
-          </div>
-        )}
-      </div>
+          {showDemo && (
+            <div className="mt-4">
+              <DemoLogin />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

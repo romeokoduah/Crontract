@@ -20,6 +20,7 @@ const serverEnvSchema = z
     NEXTAUTH_URL: z.string().url().optional(),
     // Optional integrations — validated only if present.
     RESEND_API_KEY: z.string().optional(),
+    EMAIL_FROM: z.string().optional(),
     REDIS_URL: z.string().optional(),
     S3_ENDPOINT: z.string().optional(),
     S3_BUCKET: z.string().optional(),

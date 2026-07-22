@@ -18,6 +18,14 @@ export async function loadRatePack(workspaceId: string, year: number): Promise<R
       select: { taxYear: true },
     })
     if (mostRecent) {
+      // No exact-year rates configured — fall back to the most recent prior year, but make it
+      // LOUD. Computing e.g. 2026 pay on 2024 brackets is silently wrong tax; the admin must
+      // enter current GRA brackets at /payroll/tax-settings. We warn rather than throw so the
+      // demo (seeded only with 2024 rates) keeps working.
+      console.warn(
+        `[payroll] No tax rates configured for workspace ${workspaceId} year ${year}; ` +
+        `falling back to ${mostRecent.taxYear} rates. Enter ${year} GRA brackets at /payroll/tax-settings.`,
+      )
       rows = await prisma.taxRateTable.findMany({
         where: { workspaceId, taxYear: mostRecent.taxYear },
         orderBy: [{ type: "asc" }, { sequence: "asc" }],

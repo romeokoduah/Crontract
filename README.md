@@ -42,15 +42,15 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ### Demo Credentials
 
-All demo accounts use password: `password123`
+All demo accounts use password: `password123` (seeded by `pnpm db:seed`).
 
-| Role | Email |
-|---|---|
-| Admin (Owner) | admin@crontract.io |
-| Manager | manager@crontract.io |
-| Employee | kofi@crontract.io |
-| Employee | abena@crontract.io |
-| Employee | yaw@crontract.io |
+| Workspace | Role | Email |
+|---|---|---|
+| GoldStar Mining | Owner | admin@goldstar.io |
+| GoldStar Mining | Manager | ama@goldstar.io |
+| Horizon Ghana NGO | Owner | admin@horizon-ghana.org |
+| Kobo Labs | Owner | admin@kobolabs.com |
+| Kobo Labs | Manager | serwa@kobolabs.com |
 
 ## Architecture
 
@@ -108,7 +108,10 @@ Fine-grained permissions in `module:entity:action` format (112 total). Roles are
 - **Grants & M&E** — Donors, grants, logframes, indicators, reports
 - **CRM** — Contacts, companies, deals, pipeline, activities
 - **Compliance** — Obligations, licences, policies, audits, corrective actions
-- **Social Media** — Accounts, posts, calendar, compose
+- **Social Media** — Accounts, posts, calendar, compose _(simulated — no live posting yet)_
+
+### Tier 3 — Coming Soon
+- **Reports & Analytics** — Report builder, saved reports, scheduled delivery _(not yet implemented)_
 
 ## Development
 

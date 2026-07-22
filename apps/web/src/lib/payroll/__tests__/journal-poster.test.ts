@@ -142,6 +142,37 @@ describe("buildPayrollJournalLines", () => {
     const { totals } = await buildPayrollJournalLines(tx, "ws1", "run1")
     expect(Math.abs(totals.debit - totals.credit)).toBeLessThanOrEqual(0.01)
   })
+
+  it("credits OTHER_DEDUCTIONS_PAYABLE and stays balanced when a payslip has other deductions", async () => {
+    // Self-consistent: net = gross - ssnitEE - paye - loan - other = 1000 - 55 - 80 - 100 - 65 = 700
+    const p = payslip({ otherDeductions: 65, netPay: 700 })
+    const { tx } = makeTx({
+      mappings: [
+        ...fullMappings(),
+        { lineType: "OTHER_DEDUCTIONS_PAYABLE", accountId: "acct-OTHER_DEDUCTIONS_PAYABLE" },
+      ],
+      payslips: [p],
+    })
+    const { lines, totals } = await buildPayrollJournalLines(tx, "ws1", "run1")
+
+    expect(totals.debit).toBe(totals.credit)
+    const byAccount = Object.fromEntries(lines.map((l) => [l.accountId, l]))
+    expect(byAccount["acct-OTHER_DEDUCTIONS_PAYABLE"]).toMatchObject({ debit: 0, credit: 65 })
+  })
+
+  it("throws a clear error when other deductions exist but the GL mapping is unset", async () => {
+    const p = payslip({ otherDeductions: 65, netPay: 700 })
+    const { tx } = makeTx({ payslips: [p] }) // only the core 8 mappings
+    await expect(buildPayrollJournalLines(tx, "ws1", "run1")).rejects.toThrow(
+      /OTHER_DEDUCTIONS_PAYABLE/
+    )
+  })
+
+  it("omits the other-deductions line entirely when there are none (backward compatible)", async () => {
+    const { tx } = makeTx({ payslips: [payslip()] }) // no otherDeductions, 8 mappings
+    const { lines } = await buildPayrollJournalLines(tx, "ws1", "run1")
+    expect(lines.find((l) => l.accountId === "acct-OTHER_DEDUCTIONS_PAYABLE")).toBeUndefined()
+  })
 })
 
 // ─── reverseLines ─────────────────────────────────────────────────────────────

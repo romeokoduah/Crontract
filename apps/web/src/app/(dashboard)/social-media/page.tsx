@@ -85,6 +85,11 @@ export default async function SocialMediaPage() {
         </Button>
       </div>
 
+      {/* Demo notice — publishing is simulated, not connected to live networks */}
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
+        <span className="font-medium">Demo mode:</span> publishing is simulated — posts are not sent to live social networks, and engagement figures are placeholders.
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

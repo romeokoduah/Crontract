@@ -176,4 +176,26 @@ describe("computePayslip", () => {
     expect(out.paye).toBeCloseTo(baseOnly.paye, 2)
     expect(out.gross).toBeCloseTo(17000, 2)
   })
+
+  it("PAYE is non-cumulative: a month's tax is independent of YTD earnings (Ghana basis)", () => {
+    // Same month's pay must produce the same PAYE regardless of prior-month accumulation.
+    // This locks in Ghana's non-cumulative monthly system — guard against a cumulative rewrite.
+    const fresh = computePayslip({ ...base, ytd: { gross: 0, paye: 0, ssnit: 0 } })
+    const later = computePayslip({ ...base, ytd: { gross: 500_000, paye: 120_000, ssnit: 30_000 } })
+    expect(later.paye).toBeCloseTo(fresh.paye, 2)
+  })
+
+  it("subtracts DEDUCTION components from net pay (feeds OTHER_DEDUCTIONS_PAYABLE)", () => {
+    const out = computePayslip({
+      ...base,
+      components: [
+        ...base.components,
+        { componentId: "d1", code: "UNION", name: "Union Dues", type: "DEDUCTION", taxable: false, pensionable: false, amount: 200 },
+      ],
+    })
+    const earningsOnly = computePayslip(base)
+    expect(out.otherDeductions).toBeCloseTo(200, 2)
+    // Net is reduced by exactly the deduction; the journal must credit it (see journal-poster).
+    expect(out.netPay).toBeCloseTo(earningsOnly.netPay - 200, 2)
+  })
 })

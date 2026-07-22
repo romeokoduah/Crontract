@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requireAdminRole } from "@/lib/authorization"
 
 const patchSchema = z.object({
   roleId: z.string().uuid(),
@@ -11,8 +12,7 @@ const patchSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session); if (denied) return denied
 
     const membership = await prisma.membership.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId! },
@@ -63,8 +63,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    if (!session!.user.workspaceId!) return NextResponse.json({ error: "No workspace" }, { status: 403 })
+    const denied = requireAdminRole(session); if (denied) return denied
 
     const membership = await prisma.membership.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId! },

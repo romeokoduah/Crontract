@@ -56,11 +56,16 @@ const DEMO_WORKSPACES: DemoWorkspace[] = [
   },
 ]
 
+// Must match the canonical seed password (packages/db/src/seed.ts, run by `pnpm db:seed`).
 const DEMO_PASSWORD = "password123"
 
 export function DemoLogin() {
   const router = useRouter()
   const [loadingEmail, setLoadingEmail] = useState<string | null>(null)
+
+  // Defence in depth: never expose demo credentials / one-click admin login in production.
+  // (The parent also gates this server-side so the bundle isn't shipped in prod builds.)
+  if (process.env.NODE_ENV === "production") return null
 
   async function handleDemoLogin(workspace: DemoWorkspace) {
     setLoadingEmail(workspace.adminEmail)

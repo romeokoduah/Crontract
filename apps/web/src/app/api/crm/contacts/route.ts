@@ -60,6 +60,12 @@ export async function POST(req: NextRequest) {
     const workspaceId = session!.user.workspaceId!
     const userId = session!.user.id
 
+    // Verify the referenced company belongs to this workspace (no cross-tenant FK association).
+    if (data.companyId) {
+      const company = await prisma.crmCompany.findFirst({ where: { id: data.companyId, workspaceId }, select: { id: true } })
+      if (!company) return NextResponse.json({ error: "Company not found" }, { status: 400 })
+    }
+
     const contact = await prisma.crmContact.create({
       data: {
         workspaceId,

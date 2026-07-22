@@ -15,19 +15,23 @@ const DEFAULTS: { lineType: PayrollGlLineType; code: string; name: string; type:
   { lineType: "TIER2_PAYABLE",          code: "2120", name: "Tier 2 Payable",           type: "LIABILITY" },
   { lineType: "LOAN_RECEIVABLE",        code: "1310", name: "Staff Loans Receivable",   type: "ASSET" },
   { lineType: "NET_PAY_CLEARING",       code: "1010", name: "Net Pay Clearing",         type: "LIABILITY" },
+  // Optional: only needed by workspaces that use voluntary (non-statutory) deduction components.
+  { lineType: "OTHER_DEDUCTIONS_PAYABLE", code: "2130", name: "Other Deductions Payable", type: "LIABILITY" },
 ]
 
 const lineTypeEnum = z.enum([
   "WAGES_EXPENSE","EMPLOYER_SSNIT_EXPENSE","EMPLOYER_TIER2_EXPENSE",
   "SSNIT_PAYABLE","PAYE_PAYABLE","TIER2_PAYABLE","LOAN_RECEIVABLE","NET_PAY_CLEARING",
+  "OTHER_DEDUCTIONS_PAYABLE",
 ])
 
 const applySchema = z.object({
+  // The 8 core lines are always required; OTHER_DEDUCTIONS_PAYABLE is an optional 9th.
   mappings: z.array(z.object({
     lineType: lineTypeEnum,
     accountId: z.string().uuid().optional(),
     create: z.boolean().optional(),
-  })).length(8),
+  })).min(8).max(9),
 })
 
 export async function GET() {

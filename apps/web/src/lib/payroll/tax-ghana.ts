@@ -42,6 +42,15 @@ export function computePayslip(input: PayslipInput): PayslipOutput {
   const ssnitEmployer = round2(basicPro * rates.ssnitEmployer)
   const tier2 = round2(basicPro * rates.tier2)
 
+  // Ghana operates a NON-CUMULATIVE monthly PAYE system: each month's emoluments are taxed
+  // independently using the monthly equivalent of the annual bands. We model that by
+  // annualizing this month's taxable pay (× 12), applying the annual brackets, then dividing
+  // the resulting tax by 12. This is mathematically identical to applying monthly bands to
+  // monthly income and is the correct method for regular pay — do NOT convert this to a
+  // cumulative/YTD model (that is the UK system, not Ghana's).
+  // Caveat: for a part-month (daysWorked < daysInMonth) this annualizes a pro-rated figure,
+  // which is only an approximation; the run pipeline currently always uses full months.
+  // Lump-sum bonus/overtime concessions are not yet modelled.
   const annualGross = (basicPro + taxableEarningsPro) * 12
   const annualSsnit = ssnitEmployee * 12
   const assessable = Math.max(0, annualGross - annualSsnit)

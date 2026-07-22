@@ -42,11 +42,14 @@ Build compiles, all module pages render, seed data loads, auth works end-to-end.
 - [x] Assets — register with stats, create form, categories
 - [x] HSE — **dashboard with KPIs**, incidents (report/investigate/close with corrective actions), permits to work (6 types), risk assessments, toolbox talks, safety training with expiry alerts
 
+### Segment-specific Modules (Tier 3)
+- [x] Grants & M&E — donors, grants, indicators, reports (live data, workspace-isolated)
+- [x] CRM — contacts, companies, deals, activities, weighted pipeline
+- [x] Compliance — obligations, licences (auto-expiry), compliance score
+- [x] Social Media — accounts, posts, calendar, compose — **publishing is simulated** (no live network posting)
+
 ### Segment Stubs (Tier 3)
-- [x] Grants & M&E — Coming Soon page
-- [x] CRM — Coming Soon page
-- [x] Compliance — Coming Soon page
-- [x] Reports & Analytics — Coming Soon page
+- [ ] Reports & Analytics — Coming Soon page (report builder not implemented)
 
 ### Data
 - [x] 112 permissions seeded
