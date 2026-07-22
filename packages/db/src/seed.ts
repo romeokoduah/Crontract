@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client"
 import { hash } from "bcryptjs"
 import { seedDemoEmployeePayroll, seedPayrollDefaults } from "./payroll-seed"
-import { seedPayrollPermissions } from "./permissions-seed"
+import { seedCatalogue, backfillRoleGrants } from "./permissions/backfill"
 
 const GOLDSTAR_SALARIES = {
   "admin@goldstar.io":  { basic: 22000, housing: 5000, transport: 2000 },
@@ -237,9 +237,12 @@ async function seedWorkspace(config: WorkspaceConfig, passwordHash: string) {
     }
   }
 
-  // Payroll defaults: Ghana 2024 tax rates + default pay components + permissions
+  // Payroll defaults: Ghana 2024 tax rates + default pay components
   await seedPayrollDefaults(prisma, wId, 2024)
-  await seedPayrollPermissions(prisma, wId)
+
+  // Permission catalogue + default role grants (idempotent backfill)
+  await seedCatalogue(prisma)
+  await backfillRoleGrants(prisma, wId)
 
   // Demo salaries only for the mining workspace (so payroll has interesting data out of the box)
   if (wsConfig.slug === "goldstar-mining") {
