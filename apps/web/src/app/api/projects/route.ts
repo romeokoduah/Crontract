@@ -3,9 +3,10 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAuth } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 import { requirePermission, scopeWhere } from "@/lib/authz/guard"
 import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const createProjectSchema = z.object({
   name: z.string().min(1).max(200),
@@ -35,14 +36,19 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
 
-    const grants = await loadRoleGrants(session!.user.roleId!)
-    const viewScope = grants.get("projects:project:view") ?? "OWN"
-    const scoping =
-      viewScope === "ALL"
-        ? {}
-        : viewScope === "TEAM"
-          ? { OR: [{ ownerId: session!.user.id }, { members: { some: { userId: session!.user.id } } }] }
-          : scopeWhere({ id: session!.user.id }, "OWN", { ownerFields: ["ownerId"] })
+    let scoping: Record<string, unknown>
+    if (AUTHZ_ENFORCED) {
+      const grants = await loadRoleGrants(session!.user.roleId!)
+      const viewScope = grants.get("projects:project:view") ?? "OWN"
+      scoping =
+        viewScope === "ALL"
+          ? {}
+          : viewScope === "TEAM"
+            ? { OR: [{ ownerId: session!.user.id }, { members: { some: { userId: session!.user.id } } }] }
+            : scopeWhere({ id: session!.user.id }, "OWN", { ownerFields: ["ownerId"] })
+    } else {
+      scoping = isAdmin(session) ? {} : { ownerId: session!.user.id }
+    }
 
     const projects = await prisma.project.findMany({
       where: {
@@ -92,6 +98,8 @@ export async function POST(req: NextRequest) {
     const denied = await requirePermission(
       { id: session!.user.id, roleId: session!.user.roleId! },
       "projects:project:create",
+      undefined,
+      () => isAdmin(session),
     )
     if (denied) return denied
 
@@ -108,19 +116,27 @@ export async function POST(req: NextRequest) {
     const workspaceId = session!.user.workspaceId!
     const userId = session!.user.id
 
-    const project = await prisma.project.create({
-      data: {
-        workspaceId,
-        name: data.name,
-        description: data.description,
-        status: data.status,
-        priority: data.priority,
-        startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
-        budget: data.budget ?? undefined,
-        ownerId: data.ownerId ?? userId,
-        createdBy: userId,
-      },
+    const project = await prisma.$transaction(async (tx) => {
+      const created = await tx.project.create({
+        data: {
+          workspaceId,
+          name: data.name,
+          description: data.description,
+          status: data.status,
+          priority: data.priority,
+          startDate: data.startDate ? new Date(data.startDate) : undefined,
+          endDate: data.endDate ? new Date(data.endDate) : undefined,
+          budget: data.budget ?? undefined,
+          ownerId: data.ownerId ?? userId,
+          createdBy: userId,
+        },
+      })
+
+      await tx.projectMember.create({
+        data: { projectId: created.id, userId: created.ownerId, role: "LEAD" },
+      })
+
+      return created
     })
 
     await prisma.auditLog.create({

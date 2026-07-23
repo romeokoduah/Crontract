@@ -7,14 +7,18 @@ export async function requirePermission(
   user: { id: string; roleId: string },
   code: string,
   resource?: ResourceCtx,
+  legacy?: () => boolean | Promise<boolean>,
 ): Promise<NextResponse | null> {
-  const allowed = await can(user, code, resource)
-  if (allowed) return null
-  if (!AUTHZ_ENFORCED) {
-    console.warn(`[authz:shadow-deny] user=${user.id} code=${code}`)
-    return null
+  const would = await can(user, code, resource)
+  if (AUTHZ_ENFORCED) {
+    return would ? null : NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!would) console.warn(`[authz:shadow-deny] user=${user.id} code=${code}`)
+  if (legacy) {
+    const ok = await legacy()
+    return ok ? null : NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  return null
 }
 
 /** Prisma `where` fragment restricting a list query to the caller's scope. */

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAuth } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 import { requirePermission } from "@/lib/authz/guard"
 
 export function taskResourceCtx(task: { projectId: string; assigneeId: string | null; createdBy: string }) {
@@ -43,6 +43,7 @@ export async function PATCH(
       { id: session!.user.id, roleId: session!.user.roleId! },
       "projects:task:update",
       taskResourceCtx(existing),
+      () => isAdmin(session) || existing.assigneeId === session!.user.id,
     )
     if (denied) return denied
 
@@ -124,6 +125,7 @@ export async function DELETE(
       { id: session!.user.id, roleId: session!.user.roleId! },
       "projects:task:delete",
       taskResourceCtx(existing),
+      () => isAdmin(session) || existing.assigneeId === session!.user.id,
     )
     if (denied) return denied
 

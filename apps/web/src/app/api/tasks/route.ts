@@ -3,9 +3,10 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAuth } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 import { requirePermission, scopeWhere } from "@/lib/authz/guard"
 import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const createTaskSchema = z.object({
   projectId: z.string().uuid(),
@@ -51,13 +52,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    const grants = await loadRoleGrants(session!.user.roleId!)
-    const viewScope = grants.get("projects:task:view") ?? "OWN"
-    const scoping = scopeWhere(
-      { id: session!.user.id },
-      viewScope,
-      { projectPath: "project", ownerFields: ["assigneeId", "createdBy"] },
-    )
+    let scoping: Record<string, unknown>
+    if (AUTHZ_ENFORCED) {
+      const grants = await loadRoleGrants(session!.user.roleId!)
+      const viewScope = grants.get("projects:task:view") ?? "OWN"
+      scoping = scopeWhere(
+        { id: session!.user.id },
+        viewScope,
+        { projectPath: "project", ownerFields: ["assigneeId", "createdBy"] },
+      )
+    } else {
+      scoping = isAdmin(session) ? {} : { assigneeId: session!.user.id }
+    }
 
     const tasks = await prisma.task.findMany({
       where: {

@@ -51,4 +51,18 @@ describe("requirePermission", () => {
     expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()
   })
+
+  it("flag off + legacy denies + can() false → 403 (legacy still enforced)", async () => {
+    flag.AUTHZ_ENFORCED = false
+    ;(can as any).mockResolvedValue(false)
+    const res = await requirePermission(USER, "projects:task:update", undefined, () => false)
+    expect(res?.status).toBe(403)
+  })
+
+  it("flag off + legacy allows + can() false → null (legacy still enforced)", async () => {
+    flag.AUTHZ_ENFORCED = false
+    ;(can as any).mockResolvedValue(false)
+    const res = await requirePermission(USER, "projects:task:update", undefined, () => true)
+    expect(res).toBeNull()
+  })
 })

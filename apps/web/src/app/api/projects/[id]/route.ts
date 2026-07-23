@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAuth } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
 import { requirePermission } from "@/lib/authz/guard"
 
 const updateProjectSchema = z.object({
@@ -49,6 +49,7 @@ export async function GET(
       { id: session!.user.id, roleId: session!.user.roleId! },
       "projects:project:view",
       { projectId: project.id, ownerIds: [project.ownerId] },
+      () => isAdmin(session) || project.ownerId === session!.user.id,
     )
     if (denied) return denied
 
@@ -84,6 +85,7 @@ export async function PATCH(
       { id: session!.user.id, roleId: session!.user.roleId! },
       "projects:project:update",
       { projectId: existing.id, ownerIds: [existing.ownerId] },
+      () => isAdmin(session),
     )
     if (denied) return denied
 
@@ -150,6 +152,7 @@ export async function DELETE(
       { id: session!.user.id, roleId: session!.user.roleId! },
       "projects:project:delete",
       { projectId: existing.id, ownerIds: [existing.ownerId] },
+      () => isAdmin(session),
     )
     if (denied) return denied
 
