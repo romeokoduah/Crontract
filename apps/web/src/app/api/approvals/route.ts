@@ -3,12 +3,21 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
 import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "approvals:approval:view",
+    )
+    if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const statusFilter = searchParams.get("status") // PENDING | APPROVED | REJECTED | CANCELLED
@@ -18,12 +27,20 @@ export async function GET(req: NextRequest) {
     const workspaceId = session!.user.workspaceId!
     const admin = isAdmin(session)
 
+    const scoped = AUTHZ_ENFORCED
+      ? scopeWhere(
+          { id: userId },
+          (await loadRoleGrants(session!.user.roleId!)).get("approvals:approval:view") ?? "OWN",
+          { ownerFields: ["requestedBy"] },
+        )
+      : (!admin ? { requestedBy: userId } : {})
+
     // Get all approvals for this workspace
     const approvals = await prisma.approval.findMany({
       where: {
         workspaceId,
         ...(statusFilter ? { status: statusFilter as "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" } : {}),
-        ...(!admin ? { requestedBy: userId } : {}),
+        ...scoped,
       },
       include: {
         flow: { select: { id: true, name: true, entityType: true, steps: true } },

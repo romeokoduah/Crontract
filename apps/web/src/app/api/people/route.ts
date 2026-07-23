@@ -4,7 +4,9 @@ import { z } from "zod"
 import crypto from "crypto"
 import { prisma } from "@/lib/db"
 import { authOptions, hashPassword } from "@/lib/auth"
-import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 function generateTempPassword(): string {
   const length = 12
@@ -66,6 +68,12 @@ export async function GET(req: NextRequest) {
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "people:employee:view",
+    )
+    if (denied) return denied
+
     const workspaceId = session!.user.workspaceId!
     const admin = isAdmin(session)
 
@@ -73,13 +81,17 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status")
     const departmentId = searchParams.get("departmentId")
 
+    // Employee has no owner/project relation to scope by — leave unscoped under
+    // enforcement (same accepted precedent as assets); legacy self-filter preserved.
+    const scoped = AUTHZ_ENFORCED ? {} : (!admin ? { email: session!.user.email.toLowerCase() } : {})
+
     const employees = await prisma.employee.findMany({
       where: {
         workspaceId,
         deletedAt: null,
         ...(status ? { status: status as "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "TERMINATED" | "RESIGNED" } : {}),
         ...(departmentId ? { departmentId } : {}),
-        ...(!admin ? { email: session!.user.email.toLowerCase() } : {}),
+        ...scoped,
       },
       include: {
         department: { select: { id: true, name: true } },
@@ -98,7 +110,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "people:employee:create",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const body = await req.json()

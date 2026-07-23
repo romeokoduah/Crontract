@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import crypto from "crypto"
 import { prisma } from "@/lib/db"
 import { authOptions, hashPassword } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 function generateTempPassword(): string {
   const length = 12
@@ -35,7 +36,15 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "people:employee:update",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const { id } = params

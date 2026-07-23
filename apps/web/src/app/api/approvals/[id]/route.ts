@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const decisionSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED"]),
@@ -16,8 +17,8 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
-    if (denied) return denied
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const approval = await prisma.approval.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId! },
@@ -27,6 +28,15 @@ export async function PATCH(
       },
     })
     if (!approval) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "approvals:approval:act",
+      { ownerIds: [approval.requestedBy] },
+      () => isAdmin(session),
+    )
+    if (denied) return denied
+
     if (approval.status !== "PENDING") {
       return NextResponse.json({ error: "Approval is no longer pending" }, { status: 400 })
     }
