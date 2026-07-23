@@ -992,14 +992,23 @@ export async function requirePermission(
   user: { id: string; roleId: string },
   code: string,
   resource?: ResourceCtx,
+  // `legacy` preserves the route's PRE-authz rule while enforcement is OFF, so a
+  // flag-off deploy behaves EXACTLY as today (per the spec's "keep isAdmin for the
+  // flag-off path"). Pass the old predicate; omit it for routes that were already
+  // open to any authenticated member.
+  legacy?: () => boolean | Promise<boolean>,
 ): Promise<NextResponse | null> {
-  const allowed = await can(user, code, resource)
-  if (allowed) return null
-  if (!AUTHZ_ENFORCED) {
-    console.warn(`[authz:shadow-deny] user=${user.id} code=${code}`)
-    return null
+  const would = await can(user, code, resource)
+  if (AUTHZ_ENFORCED) {
+    return would ? null : NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Shadow mode: log what the new system WOULD deny, then apply today's rule.
+  if (!would) console.warn(`[authz:shadow-deny] user=${user.id} code=${code}`)
+  if (legacy) {
+    const ok = await legacy()
+    return ok ? null : NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  return null
 }
 
 /** Prisma `where` fragment restricting a list query to the caller's scope. */
@@ -1199,18 +1208,43 @@ git commit -m "feat(authz): enforce permissions on projects/tasks routes (refere
 **Interfaces:**
 - Consumes: `requirePermission` from `@/lib/authz/guard`; `scopeWhere` from `@/lib/authz/guard`.
 
+**CRITICAL PATTERN (from Task 8 review) — flag-off must equal today.** `requirePermission`
+allows-all in shadow mode ONLY when no `legacy` predicate is given. Any handler that had a
+REAL pre-authz check (`requireAdminRole`, `isAdmin`, an owner/assignee 403) MUST pass that
+exact check as the `legacy` predicate, or the flag-off window silently drops the old
+restriction. Routes that were open to any authenticated member (bare `requireAuth`) pass no
+`legacy`. Do NOT delete the legacy predicate logic — move it into the `legacy` callback.
+
 - [ ] **Step 1: Guard each route by its catalogue code**
 
-For every route file, at the top of each handler after the existing `requireAuth`, insert `requirePermission` with the module's code. Map by HTTP verb: GET→`:view`, POST→`:create`/`:manage`, PATCH/PUT→`:update`/`:manage`, DELETE→`:delete`. For team-scoped modules, pass the resource ctx (`{ projectId }` where a project link exists, else `{ ownerIds: [...] }`). For ALL-only modules, pass no resource.
+For every route file, after the existing `requireAuth`, insert `requirePermission` with the module's code. Map by HTTP verb: GET→`:view`, POST→`:create`/`:manage`, PATCH/PUT→`:update`/`:manage`, DELETE→`:delete`. For team-scoped modules, pass the resource ctx (`{ projectId }` where a project link exists, else `{ ownerIds: [...] }`) — and load the record first for single-resource ops. Pass the `legacy` predicate capturing the route's pre-authz rule:
 
-Work module-by-module. After each module, run:
+```ts
+const denied = await requirePermission(
+  { id: session!.user.id, roleId: session!.user.roleId! },
+  "<code>", <resourceCtx?>,
+  () => isAdmin(session) /* or: isAdmin(session) || existing.ownerId === session!.user.id, etc. */,
+)
+if (denied) return denied
+```
 
-Run: `pnpm --filter web exec tsc --noEmit`
-Expected: exit 0.
+For ALL-only admin-style routes the legacy predicate is `() => isAdmin(session)`. Keep `isAdmin`/`requireAuth` imports where the legacy predicate uses them. Work module-by-module. After each module, run `pnpm --filter web exec tsc --noEmit` (only the 2 pre-existing env.test.ts errors allowed).
 
-- [ ] **Step 2: Apply `scopeWhere` to team-scoped list endpoints**
+- [ ] **Step 2: Apply `scopeWhere` to team-scoped list endpoints — GATED ON THE FLAG**
 
-For `crm`, `procurement`, `assets`, `hse`, `grants`, `meetings`, `documents` list GETs, compose `scopeWhere(user, heldScope, { projectPath, ownerFields })` into the existing workspace-filtered `where`. `heldScope` comes from `loadRoleGrants(user.roleId).get(code)`. Where a module has no project link, use `ownerFields` only.
+For `crm`, `procurement`, `assets`, `hse`, `grants`, `meetings`, `documents` list GETs, apply scope filtering ONLY when enforcement is on, else keep today's filter, so flag-off rows are unchanged:
+
+```ts
+import { AUTHZ_ENFORCED } from "@/lib/env"
+const where = {
+  ...baseWorkspaceFilter,
+  ...(AUTHZ_ENFORCED
+    ? scopeWhere(user, heldScope, { projectPath, ownerFields })   // heldScope = (await loadRoleGrants(user.roleId)).get(code) ?? "OWN"
+    : legacyListFilter),                                          // e.g. non-admin → { assigneeId: user.id }, matching today
+}
+```
+
+Where a module has no project link, use `ownerFields` only. Where a module previously had no list restriction, `legacyListFilter` is `{}`.
 
 - [ ] **Step 3: Commit per module (frequent commits)**
 
