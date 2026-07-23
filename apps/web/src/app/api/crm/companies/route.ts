@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const createCompanySchema = z.object({
   name: z.string().min(1, "Company name is required"),
@@ -20,13 +23,30 @@ const createCompanySchema = z.object({
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "crm:contact:view",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
+
+    const scoped = AUTHZ_ENFORCED
+      ? scopeWhere(
+          { id: session!.user.id },
+          (await loadRoleGrants(session!.user.roleId!)).get("crm:contact:view") ?? "OWN",
+          { ownerFields: ["ownerId"] },
+        )
+      : {}
 
     const companies = await prisma.crmCompany.findMany({
       where: {
         workspaceId: session!.user.workspaceId!,
         deletedAt: null,
+        ...scoped,
       },
       include: {
         _count: {
@@ -46,7 +66,15 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "crm:contact:manage",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const body = await req.json()

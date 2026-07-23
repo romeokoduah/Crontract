@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const patchMeetingSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -34,9 +35,13 @@ export async function GET(
     })
     if (!meeting) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    if (!admin && !(meeting.attendees as string[]).includes(session!.user.id)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "meetings:meeting:view",
+      { projectId: meeting.projectId ?? undefined, ownerIds: [meeting.createdBy] },
+      () => admin || (meeting.attendees as string[]).includes(session!.user.id),
+    )
+    if (denied) return denied
 
     // Enrich with project name
     const project = meeting.projectId
@@ -65,13 +70,21 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
-    if (denied) return denied
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const existing = await prisma.meeting.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "meetings:meeting:update",
+      { projectId: existing.projectId ?? undefined, ownerIds: [existing.createdBy] },
+      () => isAdmin(session),
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = patchMeetingSchema.safeParse(body)

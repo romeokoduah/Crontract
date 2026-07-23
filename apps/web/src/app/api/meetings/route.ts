@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const createMeetingSchema = z.object({
   title: z.string().min(1).max(500),
@@ -30,6 +33,12 @@ export async function GET(req: NextRequest) {
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "meetings:meeting:view",
+    )
+    if (denied) return denied
+
     const workspaceId = session!.user.workspaceId!
     const admin = isAdmin(session)
 
@@ -37,12 +46,20 @@ export async function GET(req: NextRequest) {
     const projectId = searchParams.get("projectId")
     const status = searchParams.get("status")
 
+    const scoped = AUTHZ_ENFORCED
+      ? scopeWhere(
+          { id: session!.user.id },
+          (await loadRoleGrants(session!.user.roleId!)).get("meetings:meeting:view") ?? "OWN",
+          { projectPath: "project", ownerFields: ["createdBy"] },
+        )
+      : (!admin ? { attendees: { has: session!.user.id } } : {})
+
     const meetings = await prisma.meeting.findMany({
       where: {
         workspaceId,
+        ...scoped,
         ...(projectId ? { projectId } : {}),
         ...(status ? { status: status as "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" } : {}),
-        ...(!admin ? { attendees: { has: session!.user.id } } : {}),
       },
       orderBy: { startTime: "asc" },
     })
@@ -72,7 +89,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "meetings:meeting:create",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const body = await req.json()

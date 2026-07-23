@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const patchDocumentSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -29,9 +30,13 @@ export async function GET(
     })
     if (!document) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    if (!admin && document.createdBy !== session!.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "documents:document:view",
+      { ownerIds: [document.createdBy] },
+      () => admin || document.createdBy === session!.user.id,
+    )
+    if (denied) return denied
 
     const [creator, folder] = await Promise.all([
       prisma.user.findUnique({ where: { id: document.createdBy }, select: { id: true, name: true } }),
@@ -53,13 +58,21 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
-    if (denied) return denied
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const existing = await prisma.document.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "documents:document:update",
+      { ownerIds: [existing.createdBy] },
+      () => isAdmin(session),
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = patchDocumentSchema.safeParse(body)

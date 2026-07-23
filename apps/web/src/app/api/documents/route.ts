@@ -4,6 +4,9 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
 import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const createDocumentSchema = z.object({
   title: z.string().min(1).max(500),
@@ -26,6 +29,12 @@ export async function GET(req: NextRequest) {
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "documents:document:view",
+    )
+    if (denied) return denied
+
     const workspaceId = session!.user.workspaceId!
     const admin = isAdmin(session)
 
@@ -33,14 +42,22 @@ export async function GET(req: NextRequest) {
     const folderId = searchParams.get("folderId")
     const type = searchParams.get("type")
 
+    const scoped = AUTHZ_ENFORCED
+      ? scopeWhere(
+          { id: session!.user.id },
+          (await loadRoleGrants(session!.user.roleId!)).get("documents:document:view") ?? "OWN",
+          { ownerFields: ["createdBy"] },
+        )
+      : (!admin ? { createdBy: session!.user.id } : {})
+
     const [documents, folders] = await Promise.all([
       prisma.document.findMany({
         where: {
           workspaceId,
           deletedAt: null,
+          ...scoped,
           ...(folderId === "root" ? { folderId: null } : folderId ? { folderId } : {}),
           ...(type ? { docType: type as "GENERAL" | "LETTER" | "MEMO" | "SOP" | "POLICY" | "CONTRACT" | "REPORT" } : {}),
-          ...(!admin ? { createdBy: session!.user.id } : {}),
         },
         orderBy: { updatedAt: "desc" },
       }),
@@ -80,6 +97,12 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "documents:document:create",
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const workspaceId = session!.user.workspaceId!

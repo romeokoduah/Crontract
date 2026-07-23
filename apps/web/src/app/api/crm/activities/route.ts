@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const createActivitySchema = z.object({
   type: z.enum(["CALL", "EMAIL", "MEETING", "NOTE", "TASK"]),
@@ -17,12 +20,29 @@ const createActivitySchema = z.object({
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "crm:activity:manage",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
+
+    const scoped = AUTHZ_ENFORCED
+      ? scopeWhere(
+          { id: session!.user.id },
+          (await loadRoleGrants(session!.user.roleId!)).get("crm:activity:manage") ?? "OWN",
+          { ownerFields: ["createdBy"] },
+        )
+      : {}
 
     const activities = await prisma.crmActivity.findMany({
       where: {
         workspaceId: session!.user.workspaceId!,
+        ...scoped,
       },
       include: {
         contact: { select: { firstName: true, lastName: true } },
@@ -41,7 +61,15 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "crm:activity:manage",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const body = await req.json()
