@@ -3,11 +3,20 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { requirePermission } from "@/lib/authz/guard"
 
 const createCommentSchema = z.object({
   content: z.string().min(1).max(5000),
   parentId: z.string().uuid().optional(),
 })
+
+/** Resource context for a task's comments — scoped like the task itself. */
+function taskCommentCtx(task: { projectId: string; assigneeId: string | null; createdBy: string }) {
+  return {
+    projectId: task.projectId,
+    ownerIds: [task.assigneeId, task.createdBy].filter(Boolean) as string[],
+  }
+}
 
 export async function GET(
   req: NextRequest,
@@ -29,6 +38,13 @@ export async function GET(
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:task:view",
+      taskCommentCtx(task),
+    )
+    if (denied) return denied
 
     const comments = await prisma.comment.findMany({
       where: {
@@ -77,6 +93,13 @@ export async function POST(
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:task:view",
+      taskCommentCtx(task),
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createCommentSchema.safeParse(body)
