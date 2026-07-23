@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
+import { MODULE_VIEW_PERMISSION, ROLE_MODULE_VIEW } from "@/lib/authz/route-map"
 
 const ADMIN_ROLES = ["Owner", "Administrator"]
 
@@ -72,6 +73,27 @@ export async function middleware(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
       return NextResponse.redirect(new URL("/unauthorized", req.url))
+    }
+  }
+
+  // 6. Coarse module-prefix gate for sensitive pages/routes (defense-in-depth).
+  //    Only active when enforcement is switched on — otherwise a no-op so
+  //    behaviour is identical to today. The API-route guards are authoritative;
+  //    this is a static, role-name-based backstop so sensitive PAGES don't render
+  //    server-side for roles that plainly shouldn't see them.
+  if (process.env.AUTHZ_ENFORCED === "true") {
+    for (const [prefix, code] of Object.entries(MODULE_VIEW_PERMISSION)) {
+      if (pathname.startsWith(prefix)) {
+        const roleName = token.role as string | undefined
+        const visible = roleName ? ROLE_MODULE_VIEW[roleName] : undefined
+        if (!visible?.has(code)) {
+          if (pathname.startsWith("/api/")) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+          }
+          return NextResponse.redirect(new URL("/unauthorized", req.url))
+        }
+        break
+      }
     }
   }
 
