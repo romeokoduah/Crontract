@@ -21,16 +21,23 @@ interface Permission {
   description: string | null
 }
 
+type PermissionScope = "ALL" | "TEAM" | "OWN"
+const SCOPES: PermissionScope[] = ["ALL", "TEAM", "OWN"]
+
 interface Props {
   roles: Role[]
   permissions: Permission[]
   permissionsByModule: Record<string, Permission[]>
   initialState: Record<string, string[]> // roleId -> permissionIds
+  initialScopes?: Record<string, Record<string, string>> // roleId -> permissionId -> scope
 }
 
 type MatrixState = Record<string, Set<string>> // roleId -> Set<permissionId>
+// roleId -> permissionId -> scope. Only meaningful while the permission is checked;
+// entries persist across toggles so re-checking a box restores its last scope.
+type ScopeState = Record<string, Record<string, PermissionScope>>
 
-export function PermissionMatrix({ roles, permissions, permissionsByModule, initialState }: Props) {
+export function PermissionMatrix({ roles, permissions, permissionsByModule, initialState, initialScopes }: Props) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [errorMsg, setErrorMsg] = useState("")
 
@@ -42,6 +49,29 @@ export function PermissionMatrix({ roles, permissions, permissionsByModule, init
     return m
   })
 
+  const [scopes, setScopes] = useState<ScopeState>(() => {
+    const s: ScopeState = {}
+    for (const [roleId, permIds] of Object.entries(initialState)) {
+      s[roleId] = {}
+      for (const permId of permIds) {
+        const raw = initialScopes?.[roleId]?.[permId]
+        s[roleId][permId] = (raw === "ALL" || raw === "TEAM" || raw === "OWN") ? raw : "ALL"
+      }
+    }
+    return s
+  })
+
+  function getScope(roleId: string, permissionId: string): PermissionScope {
+    return scopes[roleId]?.[permissionId] ?? "ALL"
+  }
+
+  function setScope(roleId: string, permissionId: string, scope: PermissionScope) {
+    setScopes((prev) => ({
+      ...prev,
+      [roleId]: { ...(prev[roleId] ?? {}), [permissionId]: scope },
+    }))
+  }
+
   function toggle(roleId: string, permissionId: string) {
     setState((prev) => {
       const next = { ...prev }
@@ -50,6 +80,14 @@ export function PermissionMatrix({ roles, permissions, permissionsByModule, init
         set.delete(permissionId)
       } else {
         set.add(permissionId)
+        // Default newly-checked grants to ALL unless a scope was already recorded.
+        setScopes((prevScopes) => ({
+          ...prevScopes,
+          [roleId]: {
+            ...(prevScopes[roleId] ?? {}),
+            [permissionId]: prevScopes[roleId]?.[permissionId] ?? "ALL",
+          },
+        }))
       }
       next[roleId] = set
       return next
@@ -69,6 +107,15 @@ export function PermissionMatrix({ roles, permissions, permissionsByModule, init
       next[roleId] = set
       return next
     })
+    if (checked) {
+      setScopes((prev) => {
+        const roleScopes = { ...(prev[roleId] ?? {}) }
+        modulePermIds.forEach((id) => {
+          roleScopes[id] = roleScopes[id] ?? "ALL"
+        })
+        return { ...prev, [roleId]: roleScopes }
+      })
+    }
   }
 
   function getModuleState(roleId: string, moduleName: string): "all" | "none" | "partial" {
@@ -86,13 +133,18 @@ export function PermissionMatrix({ roles, permissions, permissionsByModule, init
 
     try {
       const results = await Promise.all(
-        roles.map((role) =>
-          fetch(`/api/admin/roles/${role.id}/permissions`, {
+        roles.map((role) => {
+          const permIds = Array.from(state[role.id] ?? [])
+          const entries = permIds.map((permissionId) => ({
+            permissionId,
+            scope: getScope(role.id, permissionId),
+          }))
+          return fetch(`/api/admin/roles/${role.id}/permissions`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ permissionIds: Array.from(state[role.id] ?? []) }),
+            body: JSON.stringify({ permissions: entries }),
           }).then((r) => r.json().then((d) => ({ ok: r.ok, data: d })))
-        )
+        })
       )
 
       const failed = results.find((r) => !r.ok)
@@ -217,21 +269,35 @@ export function PermissionMatrix({ roles, permissions, permissionsByModule, init
                           const hasPermission = state[role.id]?.has(perm.id) ?? false
                           return (
                             <td key={role.id} className="px-3 py-2 text-center">
-                              <button
-                                onClick={() => toggle(role.id, perm.id)}
-                                className={cn(
-                                  "mx-auto h-5 w-5 rounded border-2 flex items-center justify-center transition-all",
-                                  hasPermission
-                                    ? "bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700"
-                                    : "border-muted-foreground/30 hover:border-indigo-400"
-                                )}
-                              >
+                              <div className="flex flex-col items-center gap-1">
+                                <button
+                                  onClick={() => toggle(role.id, perm.id)}
+                                  className={cn(
+                                    "mx-auto h-5 w-5 rounded border-2 flex items-center justify-center transition-all",
+                                    hasPermission
+                                      ? "bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700"
+                                      : "border-muted-foreground/30 hover:border-indigo-400"
+                                  )}
+                                >
+                                  {hasPermission && (
+                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 12 12">
+                                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  )}
+                                </button>
                                 {hasPermission && (
-                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 12 12">
-                                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
+                                  <select
+                                    value={getScope(role.id, perm.id)}
+                                    onChange={(e) => setScope(role.id, perm.id, e.target.value as PermissionScope)}
+                                    className="text-[10px] bg-transparent border border-muted-foreground/30 rounded px-1 py-0.5 text-muted-foreground hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    title="Grant scope: ALL (every record), TEAM (project members), OWN (records the user owns)"
+                                  >
+                                    {SCOPES.map((s) => (
+                                      <option key={s} value={s}>{s}</option>
+                                    ))}
+                                  </select>
                                 )}
-                              </button>
+                              </div>
                             </td>
                           )
                         })}

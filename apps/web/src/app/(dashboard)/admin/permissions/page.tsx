@@ -21,7 +21,7 @@ export default async function PermissionsPage() {
     prisma.role.findMany({
       where: { workspaceId },
       include: {
-        permissions: { select: { permissionId: true } },
+        permissions: { select: { permissionId: true, scope: true } },
       },
       orderBy: [{ isSystem: "desc" }, { name: "asc" }],
     }),
@@ -30,10 +30,14 @@ export default async function PermissionsPage() {
     }),
   ])
 
-  // Build initial state: roleId -> Set<permissionId>
+  // Build initial state: roleId -> permissionIds, and roleId -> permissionId -> scope
   const initialState: Record<string, string[]> = {}
+  const initialScopes: Record<string, Record<string, string>> = {}
   for (const role of roles) {
     initialState[role.id] = role.permissions.map((rp) => rp.permissionId)
+    initialScopes[role.id] = Object.fromEntries(
+      role.permissions.map((rp) => [rp.permissionId, rp.scope])
+    )
   }
 
   // Group permissions by module
@@ -63,6 +67,7 @@ export default async function PermissionsPage() {
         permissions={allPermissions}
         permissionsByModule={permissionsByModule}
         initialState={initialState}
+        initialScopes={initialScopes}
       />
     </div>
   )

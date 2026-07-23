@@ -5,10 +5,41 @@ import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
 import { isAdmin, requireAuth } from "@/lib/authorization"
 import { requirePermission } from "@/lib/authz/guard"
+import { invalidateRoleGrants } from "@/lib/authz/grants"
+import type { PermissionScope } from "@/lib/authz/scopes"
 
 const putSchema = z.object({
-  permissionIds: z.array(z.string().uuid()),
+  permissions: z
+    .array(
+      z.object({
+        permissionId: z.string().uuid(),
+        scope: z.enum(["ALL", "TEAM", "OWN"]).default("ALL"),
+      })
+    )
+    .optional(),
+  // legacy shape: plain ids default to ALL scope
+  permissionIds: z.array(z.string().uuid()).optional(),
 })
+
+/**
+ * Replaces a role's permission grants and invalidates the cached grants for
+ * that role so the change takes effect on the next `can()` check (rather
+ * than waiting out the loader's TTL).
+ */
+export async function applyRolePermissions(
+  prisma: any,
+  roleId: string,
+  entries: { permissionId: string; scope: PermissionScope }[],
+) {
+  await prisma.rolePermission.deleteMany({ where: { roleId } })
+  if (entries.length) {
+    await prisma.rolePermission.createMany({
+      data: entries.map((e) => ({ roleId, permissionId: e.permissionId, scope: e.scope })),
+      skipDuplicates: true,
+    })
+  }
+  invalidateRoleGrants(roleId)
+}
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -36,25 +67,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const workspaceId = session!.user.workspaceId!
     const userId = session!.user.id
 
+    // Normalise to scoped entries; legacy bare-id clients default to ALL scope.
+    const entries: { permissionId: string; scope: PermissionScope }[] = parsed.data.permissions
+      ? parsed.data.permissions
+      : (parsed.data.permissionIds ?? []).map((permissionId) => ({ permissionId, scope: "ALL" as const }))
+
     // Get existing permissions for audit diff
     const existing = await prisma.rolePermission.findMany({ where: { roleId: params.id } })
     const existingIds = existing.map((rp) => rp.permissionId)
 
-    // Replace all permissions in a transaction
-    await prisma.$transaction([
-      prisma.rolePermission.deleteMany({ where: { roleId: params.id } }),
-      ...(parsed.data.permissionIds.length > 0
-        ? [
-            prisma.rolePermission.createMany({
-              data: parsed.data.permissionIds.map((permissionId) => ({
-                roleId: params.id,
-                permissionId,
-              })),
-              skipDuplicates: true,
-            }),
-          ]
-        : []),
-    ])
+    await applyRolePermissions(prisma, params.id, entries)
 
     await prisma.auditLog.create({
       data: {
@@ -64,11 +86,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         entityId: role.id,
         action: "UPDATE_PERMISSIONS",
         beforeState: { permissionIds: existingIds },
-        afterState: { permissionIds: parsed.data.permissionIds },
+        afterState: { permissionIds: entries.map((e) => e.permissionId) },
       },
     })
 
-    return NextResponse.json({ success: true, permissionCount: parsed.data.permissionIds.length })
+    return NextResponse.json({ success: true, permissionCount: entries.length })
   } catch (err) {
     console.error("[PUT /api/admin/roles/[id]/permissions]", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
