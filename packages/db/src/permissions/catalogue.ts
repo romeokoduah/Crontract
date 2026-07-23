@@ -109,6 +109,7 @@ export const CATALOGUE: PermissionDef[] = [
   def("compliance", "obligation", "view",   ALL, "View obligations"),
   def("compliance", "obligation", "manage", ALL, "Manage obligations"),
   def("compliance", "licence",    "view",   ALL, "View licences"),
+  def("compliance", "licence",    "manage", ALL, "Manage licences"),
 
   // ── meetings (team-scoped) ──
   def("meetings", "meeting", "view",   TEAM, "View meetings"),
