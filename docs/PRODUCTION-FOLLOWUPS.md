@@ -127,14 +127,33 @@ Logframe**, and **Document** (no `projectId`). If tight per-record scoping matte
 before go-live, add `createdBy` columns (or make those catalogue codes `ALL`-scope). Otherwise
 they behave as "any holder of the view permission sees all rows" — acceptable for most orgs.
 
+Catalogue-granularity caveats (enforcement-time only; flag-off unaffected): a few read
+endpoints reuse a broader code because no dedicated one exists — `crm/companies` and
+`crm/activities` reuse `crm:contact`/`crm:activity:manage`; HSE `risks`/`toolbox-talks`/
+`training` reuse `hse:permit:view`. So "view" on these requires the shared/manage grant.
+Add dedicated catalogue codes if finer separation is wanted before enforcing.
+
+Multi-instance caveat: the per-role grant cache is per-process (60s TTL). Crontract runs a
+single PM2 process today, so a matrix save invalidates the only cache. If you ever scale to
+PM2 **cluster** mode, a save on one worker leaves others serving stale grants for up to 60s —
+move invalidation to a shared store (Redis) or drop the TTL before scaling out.
+
 ## C. Go live (flip enforcement on)
 
 ```
 ssh contabo
 cd /var/www/crontract
 # set AUTHZ_ENFORCED="true" in /var/www/crontract/.env  (chmod 600, single source of truth)
+# ALSO rotate NEXTAUTH_SECRET (openssl rand -base64 32) in the same .env — see note below.
 pm2 restart crontract --update-env
 ```
+
+> **Force fresh sessions at go-live.** `roleId` is new in the token and is written only at
+> login. JWTs minted before this deploy have no `roleId`; the engine fails **closed** on a
+> missing `roleId` (deny, not allow — verified by test), so those users would hit 403s until
+> they re-login. Rotating `NEXTAUTH_SECRET` at the same time invalidates all old tokens so
+> everyone gets a fresh, `roleId`-bearing session on next sign-in. (Do NOT skip the rotation
+> expecting old tokens to "just work" — they will be denied.)
 
 Then verify, in order:
 1. **Shared box untouched:** `for p in 80 8080 8081 8082 8083; do curl -s -o /dev/null -w "$p:%{http_code}\n" http://127.0.0.1:$p/; done` — all prior codes unchanged.

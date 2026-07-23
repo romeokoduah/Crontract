@@ -13,6 +13,13 @@ export function invalidateRoleGrants(roleId: string): void {
 }
 
 export async function loadRoleGrants(roleId: string): Promise<Map<string, PermissionScope>> {
+  // Fail closed on a missing/empty roleId. Without this, Prisma drops an
+  // `undefined` filter and `findMany({ where: { roleId: undefined } })` returns
+  // EVERY RolePermission row (all roles, all workspaces) — which would grant the
+  // caller every permission. A session can legitimately lack roleId (e.g. a JWT
+  // minted before roleId was added to the token), so this must deny, not query.
+  if (!roleId) return new Map()
+
   const now = Date.now()
   const hit = cache.get(roleId)
   if (hit && hit.expires > now) return hit.grants

@@ -31,6 +31,16 @@ describe("widerScope", () => {
 })
 
 describe("loadRoleGrants", () => {
+  it("fails closed on a missing roleId — never queries, returns empty grants", async () => {
+    // Prisma drops an `undefined` where-filter and would return ALL rows (every
+    // role's grants) — a fail-OPEN privilege escalation. Guard must short-circuit.
+    const g1 = await loadRoleGrants(undefined as unknown as string)
+    const g2 = await loadRoleGrants("")
+    expect(g1.size).toBe(0)
+    expect(g2.size).toBe(0)
+    expect(findMany).not.toHaveBeenCalled()
+  })
+
   it("collapses duplicate codes to the widest scope", async () => {
     findMany.mockResolvedValue(
       rows(["projects:task:update", "OWN"], ["projects:task:update", "ALL"])
