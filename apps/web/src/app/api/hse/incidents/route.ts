@@ -4,6 +4,9 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
 import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const createIncidentSchema = z.object({
   title: z.string().min(1).max(500),
@@ -26,6 +29,12 @@ export async function GET(req: NextRequest) {
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "hse:incident:view",
+    )
+    if (denied) return denied
+
     const workspaceId = session!.user.workspaceId!
     const admin = isAdmin(session)
 
@@ -34,10 +43,18 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status")
     const type = searchParams.get("type")
 
+    const scoped = AUTHZ_ENFORCED
+      ? scopeWhere(
+          { id: session!.user.id },
+          (await loadRoleGrants(session!.user.roleId!)).get("hse:incident:view") ?? "OWN",
+          { ownerFields: ["reportedBy"] },
+        )
+      : (!admin ? { reportedBy: session!.user.id } : {})
+
     const incidents = await prisma.incident.findMany({
       where: {
         workspaceId,
-        ...(!admin ? { reportedBy: session!.user.id } : {}),
+        ...scoped,
         ...(severity ? { severity: severity as "NEAR_MISS" | "MINOR" | "MODERATE" | "MAJOR" | "FATAL" } : {}),
         ...(status ? { status: status as "REPORTED" | "UNDER_INVESTIGATION" | "CORRECTIVE_ACTIONS" | "CLOSED" | "REOPENED" } : {}),
         ...(type ? { type: type as "INJURY" | "PROPERTY_DAMAGE" | "ENVIRONMENTAL" | "NEAR_MISS" | "VEHICLE" | "FIRE" | "CHEMICAL" | "ELECTRICAL" | "OTHER" } : {}),
@@ -69,6 +86,12 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "hse:incident:report",
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = createIncidentSchema.safeParse(body)

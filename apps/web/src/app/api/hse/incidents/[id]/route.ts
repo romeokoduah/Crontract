@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const patchSchema = z.object({
   status: z.enum(["REPORTED", "UNDER_INVESTIGATION", "CORRECTIVE_ACTIONS", "CLOSED", "REOPENED"]).optional(),
@@ -24,16 +25,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
-    const admin = isAdmin(session)
-
     const incident = await prisma.incident.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!incident) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    if (!admin && incident.reportedBy !== session!.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "hse:incident:view",
+      { ownerIds: [incident.reportedBy] },
+      () => isAdmin(session) || incident.reportedBy === session!.user.id,
+    )
+    if (denied) return denied
 
     // Enrich with user info
     const userIds = [incident.reportedBy, incident.investigator].filter((id): id is string => !!id)
@@ -58,13 +61,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
-    if (denied) return denied
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const existing = await prisma.incident.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId! },
     })
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "hse:incident:update",
+      { ownerIds: [existing.reportedBy] },
+      () => isAdmin(session),
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = patchSchema.safeParse(body)

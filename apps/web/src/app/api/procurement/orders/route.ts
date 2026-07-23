@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
+import { AUTHZ_ENFORCED } from "@/lib/env"
 
 const lineSchema = z.object({
   description: z.string().min(1),
@@ -26,15 +29,32 @@ const createPOSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "procurement:po:view",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
 
+    const scoped = AUTHZ_ENFORCED
+      ? scopeWhere(
+          { id: session!.user.id },
+          (await loadRoleGrants(session!.user.roleId!)).get("procurement:po:view") ?? "OWN",
+          { ownerFields: ["createdBy"] },
+        )
+      : {}
+
     const orders = await prisma.purchaseOrder.findMany({
       where: {
         workspaceId: session!.user.workspaceId!,
+        ...scoped,
         ...(status ? { status: status as "DRAFT" | "SUBMITTED" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "BILLED" | "CANCELLED" } : {}),
       },
       include: {
@@ -53,7 +73,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "procurement:po:create",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const body = await req.json()
