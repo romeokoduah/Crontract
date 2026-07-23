@@ -82,12 +82,14 @@ else {
     ssh $Remote "cd $AppDir && export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 && corepack pnpm install --frozen-lockfile 2>&1 | tail -5"
     if ($LASTEXITCODE -ne 0) { throw "pnpm install failed" }
 
-    Write-Host "[3/5] Syncing Prisma schema..." -ForegroundColor Yellow
-    # NOTE: `db push` — this repo has no migrations directory. Safe while the
-    # data is disposable demo data; adopt `prisma migrate` before real data
-    # lands, because `db push` can silently drop columns on a schema change.
-    ssh $Remote "cd $AppDir && export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 && corepack pnpm db:generate 2>&1 | tail -2 && corepack pnpm db:push 2>&1 | tail -3"
-    if ($LASTEXITCODE -ne 0) { throw "Prisma schema sync failed" }
+    Write-Host "[3/5] Applying Prisma migrations..." -ForegroundColor Yellow
+    # Migrations are now adopted (packages/db/prisma/migrations/). `migrate deploy`
+    # only applies pending migrations and NEVER drops columns — unlike `db push`.
+    # ONE-TIME adoption on the live box must be done first (see the runbook in
+    # docs/PRODUCTION-FOLLOWUPS.md "Adopting Prisma migrations"); until the baseline
+    # is resolved there, this step fails loudly rather than mutating the schema.
+    ssh $Remote "cd $AppDir && export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 && corepack pnpm db:generate 2>&1 | tail -2 && corepack pnpm --filter @crontract/db migrate:deploy 2>&1 | tail -5"
+    if ($LASTEXITCODE -ne 0) { throw "Prisma migrate deploy failed (has the baseline been resolved on the box? see docs/PRODUCTION-FOLLOWUPS.md)" }
 
     if ($Seed) {
         Write-Host "      Seeding demo data (destructive)..." -ForegroundColor Red
