@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 import { renderPayslipPdf } from "@/lib/pdf/payslip"
 
 export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.workspaceId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-  const workspaceId = session.user.workspaceId
-  const userId = session.user.id
+  const authDenied = requireAuth(session)
+  if (authDenied) return authDenied
+  const workspaceId = session!.user.workspaceId!
+  const userId = session!.user.id
 
   const payslip = await prisma.payslip.findFirst({
     where: { id: ctx.params.id, employee: { workspaceId } },
@@ -23,9 +23,13 @@ export async function GET(_: NextRequest, ctx: { params: { id: string } }) {
   if (!payslip) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   // Authz: admin OR own payslip
-  if (!isAdmin(session) && payslip.employee.userId !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const denied = await requirePermission(
+    { id: session!.user.id, roleId: session!.user.roleId! },
+    "payroll:payslip:view_own",
+    { ownerIds: [payslip.employee.userId].filter((v): v is string => v !== null) },
+    () => isAdmin(session) || payslip.employee.userId === userId,
+  )
+  if (denied) return denied
 
   const snap = payslip.componentsSnapshot as { components?: { name: string; type: string; amount: number }[] }
   const earnings = (snap?.components ?? [])

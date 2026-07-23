@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 import { TaxRateType } from "@prisma/client"
 
 const TYPE_VALUES = [
@@ -24,7 +25,16 @@ const upsertSchema = z.object({
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const denied = requireAdminRole(session); if (denied) return denied
+  const authDenied = requireAuth(session)
+  if (authDenied) return authDenied
+
+  const denied = await requirePermission(
+    { id: session!.user.id, roleId: session!.user.roleId! },
+    "payroll:settings:manage",
+    undefined,
+    () => isAdmin(session),
+  )
+  if (denied) return denied
   const workspaceId = session!.user.workspaceId!
 
   const { searchParams } = new URL(req.url)
@@ -39,7 +49,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const denied = requireAdminRole(session); if (denied) return denied
+  const authDenied = requireAuth(session)
+  if (authDenied) return authDenied
+
+  const denied = await requirePermission(
+    { id: session!.user.id, roleId: session!.user.roleId! },
+    "payroll:settings:manage",
+    undefined,
+    () => isAdmin(session),
+  )
+  if (denied) return denied
   const workspaceId = session!.user.workspaceId!
   const userId = session!.user.id
 

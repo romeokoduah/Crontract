@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -16,7 +17,16 @@ const updateSchema = z.object({
 
 export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const denied = requireAdminRole(session); if (denied) return denied
+  const authDenied = requireAuth(session)
+  if (authDenied) return authDenied
+
+  const denied = await requirePermission(
+    { id: session!.user.id, roleId: session!.user.roleId! },
+    "payroll:component:manage",
+    undefined,
+    () => isAdmin(session),
+  )
+  if (denied) return denied
   const workspaceId = session!.user.workspaceId!
   const userId = session!.user.id
 
@@ -43,7 +53,16 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
 export async function DELETE(_: NextRequest, ctx: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  const denied = requireAdminRole(session); if (denied) return denied
+  const authDenied = requireAuth(session)
+  if (authDenied) return authDenied
+
+  const denied = await requirePermission(
+    { id: session!.user.id, roleId: session!.user.roleId! },
+    "payroll:component:manage",
+    undefined,
+    () => isAdmin(session),
+  )
+  if (denied) return denied
   const workspaceId = session!.user.workspaceId!
   const userId = session!.user.id
 
