@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { requireAuth, isAdmin } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const createActionSchema = z.object({
   title: z.string().min(1),
@@ -20,7 +21,15 @@ const createActionSchema = z.object({
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "compliance:obligation:view",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const actions = await prisma.correctiveAction.findMany({
@@ -42,7 +51,15 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "compliance:obligation:manage",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const body = await req.json()

@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { requireAuth, isAdmin } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const createAccountSchema = z.object({
   platform: z.enum(["FACEBOOK", "INSTAGRAM", "TWITTER", "LINKEDIN", "TIKTOK", "YOUTUBE"]),
@@ -15,7 +16,15 @@ const createAccountSchema = z.object({
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "social:post:view",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const accounts = await prisma.socialAccount.findMany({
@@ -33,7 +42,15 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "social:post:manage",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const body = await req.json()
@@ -81,7 +98,15 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "social:post:manage",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const { searchParams } = new URL(req.url)

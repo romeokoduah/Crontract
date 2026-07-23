@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { requireAdminRole } from "@/lib/authorization"
+import { requireAuth, requireAdminRole, isAdmin } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const createLicenceSchema = z.object({
   name: z.string().min(1),
@@ -23,7 +24,15 @@ const createLicenceSchema = z.object({
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "compliance:licence:view",
+      undefined,
+      () => isAdmin(session),
+    )
     if (denied) return denied
 
     const workspaceId = session!.user.workspaceId!
