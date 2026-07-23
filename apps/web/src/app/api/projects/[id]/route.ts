@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+import { requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
 
 const updateProjectSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -25,8 +26,6 @@ export async function GET(
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
-    const admin = isAdmin(session)
-
     const project = await prisma.project.findFirst({
       where: {
         id: params.id,
@@ -46,9 +45,12 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    if (!admin && project.ownerId !== session!.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:project:view",
+      { projectId: project.id, ownerIds: [project.ownerId] },
+    )
+    if (denied) return denied
 
     const owner = await prisma.user.findUnique({
       where: { id: project.ownerId },
@@ -68,8 +70,8 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
-    if (denied) return denied
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const existing = await prisma.project.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
@@ -77,6 +79,13 @@ export async function PATCH(
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:project:update",
+      { projectId: existing.id, ownerIds: [existing.ownerId] },
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = updateProjectSchema.safeParse(body)
@@ -127,8 +136,8 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
-    if (denied) return denied
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
 
     const existing = await prisma.project.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
@@ -136,6 +145,13 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:project:delete",
+      { projectId: existing.id, ownerIds: [existing.ownerId] },
+    )
+    if (denied) return denied
 
     await prisma.project.update({
       where: { id: params.id },

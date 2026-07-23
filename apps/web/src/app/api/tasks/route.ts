@@ -3,7 +3,9 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
 
 const createTaskSchema = z.object({
   projectId: z.string().uuid(),
@@ -26,7 +28,12 @@ export async function GET(req: NextRequest) {
     if (authDenied) return authDenied
 
     const workspaceId = session!.user.workspaceId!
-    const admin = isAdmin(session)
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:task:view",
+    )
+    if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const projectId = searchParams.get("projectId")
@@ -44,6 +51,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
+    const grants = await loadRoleGrants(session!.user.roleId!)
+    const viewScope = grants.get("projects:task:view") ?? "OWN"
+    const scoping = scopeWhere(
+      { id: session!.user.id },
+      viewScope,
+      { projectPath: "project", ownerFields: ["assigneeId", "createdBy"] },
+    )
+
     const tasks = await prisma.task.findMany({
       where: {
         projectId,
@@ -51,7 +66,7 @@ export async function GET(req: NextRequest) {
         deletedAt: null,
         parentId: null, // top-level only unless specified
         ...(status ? { status: status as "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "CANCELLED" } : {}),
-        ...(!admin ? { assigneeId: session!.user.id } : {}),
+        ...scoping,
       },
       include: {
         subtasks: {
@@ -104,6 +119,13 @@ export async function POST(req: NextRequest) {
     const data = parsed.data
     const workspaceId = session!.user.workspaceId!
     const userId = session!.user.id
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:task:create",
+      { projectId: data.projectId },
+    )
+    if (denied) return denied
 
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({

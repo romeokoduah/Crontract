@@ -3,7 +3,12 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth } from "@/lib/authorization"
+import { requireAuth } from "@/lib/authorization"
+import { requirePermission } from "@/lib/authz/guard"
+
+export function taskResourceCtx(task: { projectId: string; assigneeId: string | null; createdBy: string }) {
+  return { projectId: task.projectId, ownerIds: [task.assigneeId, task.createdBy].filter(Boolean) as string[] }
+}
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -27,8 +32,6 @@ export async function PATCH(
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
-    const admin = isAdmin(session)
-
     const existing = await prisma.task.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
@@ -36,9 +39,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
-    if (!admin && existing.assigneeId !== session!.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:task:update",
+      taskResourceCtx(existing),
+    )
+    if (denied) return denied
 
     const body = await req.json()
     const parsed = updateTaskSchema.safeParse(body)
@@ -107,8 +113,6 @@ export async function DELETE(
     const authDenied = requireAuth(session)
     if (authDenied) return authDenied
 
-    const admin = isAdmin(session)
-
     const existing = await prisma.task.findFirst({
       where: { id: params.id, workspaceId: session!.user.workspaceId!, deletedAt: null },
     })
@@ -116,9 +120,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
-    if (!admin && existing.assigneeId !== session!.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:task:delete",
+      taskResourceCtx(existing),
+    )
+    if (denied) return denied
 
     await prisma.task.update({
       where: { id: params.id },

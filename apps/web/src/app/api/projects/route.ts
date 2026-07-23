@@ -3,7 +3,9 @@ import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { isAdmin, requireAuth, requireAdminRole } from "@/lib/authorization"
+import { requireAuth } from "@/lib/authorization"
+import { requirePermission, scopeWhere } from "@/lib/authz/guard"
+import { loadRoleGrants } from "@/lib/authz/grants"
 
 const createProjectSchema = z.object({
   name: z.string().min(1).max(200),
@@ -23,17 +25,31 @@ export async function GET(req: NextRequest) {
     if (authDenied) return authDenied
 
     const workspaceId = session!.user.workspaceId!
-    const admin = isAdmin(session)
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:project:view",
+    )
+    if (denied) return denied
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
+
+    const grants = await loadRoleGrants(session!.user.roleId!)
+    const viewScope = grants.get("projects:project:view") ?? "OWN"
+    const scoping =
+      viewScope === "ALL"
+        ? {}
+        : viewScope === "TEAM"
+          ? { OR: [{ ownerId: session!.user.id }, { members: { some: { userId: session!.user.id } } }] }
+          : scopeWhere({ id: session!.user.id }, "OWN", { ownerFields: ["ownerId"] })
 
     const projects = await prisma.project.findMany({
       where: {
         workspaceId,
         deletedAt: null,
         ...(status ? { status: status as "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED" } : {}),
-        ...(!admin ? { ownerId: session!.user.id } : {}),
+        ...scoping,
       },
       include: {
         _count: { select: { tasks: { where: { deletedAt: null } } } },
@@ -70,7 +86,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const denied = requireAdminRole(session)
+    const authDenied = requireAuth(session)
+    if (authDenied) return authDenied
+
+    const denied = await requirePermission(
+      { id: session!.user.id, roleId: session!.user.roleId! },
+      "projects:project:create",
+    )
     if (denied) return denied
 
     const body = await req.json()
